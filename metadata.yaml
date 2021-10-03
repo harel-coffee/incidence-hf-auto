@@ -1,0 +1,415 @@
+-  Administrative:
+   children:
+      -  identifier: STUDY_NUM
+         meaning: Numeric study identifier
+         mapping: { 1: adelhyde, 2: ascot, 3: biomarcoeurs, 4: dyda, 5: epath, 6: flemengho, 7: gecoh, 8: healthabc, 9: hfgr, 10: hull_lifelab, 11: hvc, 12: iblomaved, 13: leitzaran, 14: predictor, 15: prosper, 16: r2c2, 17: reve(1-2), 18: stanislas, 19: stophf, 20: styrianvitd, 21: timechf }
+
+      -  identifier: DVISIT
+         meaning: Date of visit
+         tag: [ 'extended' ]
+
+      -  identifier: DBIRTH
+         meaning: Date of birth
+         tag: [ 'extended' ]
+
+      -  identifier: SEX
+         meaning: Gender
+         mapping: { 1: male, 2: female }
+
+      -  identifier: AGE
+         meaning: Age
+         unit: Years
+
+      -  identifier: BW
+         meaning: Body weight
+         unit: Kg
+
+      -  identifier: BH
+         meaning: Body height
+         unit: cm
+
+      -  identifier: BMI
+         meaning: Body-mass index
+         unit: Kg/m²
+
+      -  identifier: SMK
+         meaning: Smoking status
+         mapping: { 0: No, 1: Yes, 2: Ex-smoker }
+
+      -  identifier: PACKYEARS
+         meaning: Packs per years
+
+      -  identifier: DRK
+         meaning: Alcohol intake
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: NYHA
+         meaning: NYHA class
+
+-  identifier: Medical history
+   children:
+
+      -  identifier: HTA
+         meaning: Hypertension
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: DIABETES
+         meaning: History of diabetes
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HCV
+         meaning: History of cardiovascular disease
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HAP
+         meaning: History of angina pectoris
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HMI
+         meaning: History of myocardial infarction
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HIHD
+         meaning: History of ischaemic heart disease
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HCAD
+         meaning: History of coronary artery disease
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HCABG
+         meaning: History of coronary artery bypass graft
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HPTCA
+         meaning: History of percutaneous transluminal coronary angioplasty
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HPAD
+         meaning: History of peripheral artery disease
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HHF
+         meaning: History of heart failure
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HAF
+         meaning: History of atrial fibrillation
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HCEREBROV
+         meaning: History of cerebrovascular incident
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HSTROKE
+         meaning: History of stroke
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HTIA
+         meaning: History of transient ischemic attack
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HVALVE
+         meaning: History of valve disease
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HCV_OTHER
+         meaning: History of other cardiovascular disease
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: HYPERCHOL
+         meaning: Hypercholesterolemia
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: DEPRESSION
+         meaning: History of depression
+         mapping: { 0: No, 1: Yes }
+
+-  identifier: Medication
+   children:
+
+      -  identifier: TRT_AH
+         meaning: Intake of antihypertensive medication
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: TRT_ACE
+         meaning: Intake of angiotensin converting enzyme inhibitors
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: TRT_CCB
+         meaning: Intake of calcium channel blockers
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: TRT_DIUR
+         meaning: Intake of diuretics
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: TRT_BB
+         meaning: Intake of beta-blokcers
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: TRT_ARB
+         meaning: Intake of angiotensin II receptor blockers
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: TRT_LIP
+         meaning: Intake of lipid-lowering medication
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: TRT_STAT
+         meaning: Intake of statins
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: TRT_FIB
+         meaning: Intake of fibrates
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: TRT_ANTIPLT
+         meaning: Intake of antiplatelet medication
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: TRT_ASPIRIN
+         meaning: Intake of aspirin
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: TRT_AC
+         meaning: Intake of anticoagulantia
+         mapping: { 0: No, 1: Yes }
+
+-  identifier: Blood pressure
+   children:
+      -  identifier: SBP
+         meaning: Systolic blood pressure
+         unit: mmHg
+
+      -  identifier: DBP
+         meaning: Diastolic blood pressure
+         unit: mmHg
+
+      -  identifier: HR
+         meaning: Heart rate
+         unit: Beats per minute
+
+      -  identifier: PP
+         meaning: Pulse pressure
+         unit: mmHg
+
+-  identifier: ECG
+   children:
+      -  identifier: SOK
+         meaning: Sokolow-Lyon index
+         unit: mm
+
+      -  identifier: LVH
+         meaning: Left ventricular hypertrophy
+         mapping: { 0: no, 1: yes }
+
+      -  identifier: QRS
+         meaning: QRS duration
+         unit: ms
+
+      -  identifier: CI
+         meaning: Cornell index
+         unit: mm x msec
+
+-  identifier: Biochemical measurements
+   children:
+      -  identifier: GLU
+         meaning: Blood glucose
+         unit: mmol/L
+
+      -  identifier: CHOL
+         meaning: Total cholesterol
+         unit: mmol/L
+
+      -  identifier: LDL
+         meaning: LDL-cholesterol
+         unit: mmol/L
+
+      -  identifier: HDL
+         meaning: HDL-cholesterol
+         unit: mmol/L
+
+      -  identifier: TG
+         meaning: Triglycerides
+         unit: mmol/L
+
+      -  identifier: CREA
+         meaning: Serum creatinine
+         unit: μmol/L
+
+      -  identifier: HB
+         meaning: Haemoglobin
+         unit: g/dL
+
+      -  identifier: HBA1C
+         meaning: Glycated haemoglobin
+         unit: '%'
+
+      -  identifier: HCT
+         meaning: Haematocrit
+         unit: '%'
+
+      -  identifier: WBC
+         meaning: White blood cell count
+         unit: x 109 cells/l
+
+      -  identifier: RBC
+         meaning: Red blood cell count
+         unit: x 1012 cells/l
+
+      -  identifier: PLT
+         meaning: Platelet count
+         unit: x 109 cells/l
+
+      -  identifier: CRP
+         meaning: C-reactive protein
+         unit: mg/L
+
+      -  identifier: NA
+         meaning: Sodium
+         unit: mmol/L
+
+      -  identifier: K
+         meaning: Potassium
+         unit: mmol/L
+
+      -  identifier: AST
+         meaning: Aspartate aminotransferase
+         unit: U/L
+
+      -  identifier: ALT
+         meaning: Alanine aminotransferase
+         unit: U/L
+
+      -  identifier: BNP
+         meaning: Brain natriuretic peptide
+         unit: pg/mL
+
+      -  identifier: NTPROBNP
+         meaning: N-terminal BNP
+         unit: pg/mL
+
+      -  identifier: ALBU
+         meaning: Albumin
+
+      -  identifier: BICARB
+         meaning: Bicarbonates
+         unit: mmol/l
+
+      -  identifier: TOT_PROT
+         meaning: Total proteins
+         unit: g/L
+
+      -  identifier: LPA
+         meaning: Lipoprotein A
+         unit: '%'
+
+      -  identifier: FIBRINOGEN
+         meaning: Fibrinogen
+         unit: g/L
+
+      -  identifier: HOMOCYST
+         meaning: Homocysteine
+         unit: µmol/L
+
+      -  identifier: EGFR
+         meaning: Estimated glomerular filtration rate
+         unit: mL/min/1.73m2
+
+-  identifier: Echocardiography
+   children:
+      -  identifier: LVEF
+         meaning: Left ventricular ejection fraction
+         unit: '%'
+
+      -  identifier: LVESD
+         meaning: Left ventricular end-systolic diameter
+         unit: cm
+
+      -  identifier: LVEDD
+         meaning: Left ventricular end-diastolic diameter
+         unit: cm
+
+      -  identifier: LVESV
+         meaning: Left ventricular end-systolic volume
+         unit: mL
+
+      -  identifier: LVEDV
+         meaning: Left ventricular end-diastolic volume
+         unit: mL
+
+      -  identifier: IVES
+         meaning: End-systolic interventricular septum diameter
+         unit: cm
+
+      -  identifier: IVED
+         meaning: End-diastolic interventricular septum diameter
+         unit: cm
+
+      -  identifier: LVM
+         meaning: Left ventricular mass
+         unit: g
+
+      -  identifier: LVM_INDEX
+         meaning: Left ventricular mass index
+         unit: g/m2
+
+      -  identifier: E
+         meaning: E-wave
+         unit: cm/s
+
+      -  identifier: A
+         meaning: A-wave
+         unit: cm/s
+
+      -  identifier: E_A
+         meaning: Ratio E-wave/A-wave
+
+      -  identifier: DECELER_TIME
+         meaning: Deceleration time
+         unit: ms
+
+      -  identifier: PWT
+         meaning: Posterior wall thickness
+         unit: cm
+
+      -  identifier: IVRT
+         meaning: Isovolumetric relaxation time
+         unit: ms
+
+      -  identifier: EM_LAT
+         meaning: TDI mitral annulus velocity during early diastole, lateral wall
+         unit: cm/s
+
+      -  identifier: EM_SEP
+         meaning: TDI mitral annulus velocity during early diastole, septal wall
+         unit: cm/s
+
+      -  identifier: LA_VOL
+         meaning: Left atrial volume
+         unit: mL
+
+-  identifier: Outcome
+   children:
+
+      -  identifier: FCV
+         identifier_tte: FUFCV
+         type: survival_target
+         unit_tte: Years
+         meaning: Cardiovascular death
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: NFHF
+         type: survival_target
+         identifier_tte: FUNFHF
+         unit_tte: Years
+         meaning: Non-fatal heart failure
+         mapping: { 0: No, 1: Yes }
+
+      -  identifier: FNFHF
+         type: survival_target
+         identifier_tte: FUFNFHF
+         unit_tte: Years
+         meaning: Fatal or non-fatal heart failure
+         mapping: { 0: No, 1: Yes }
