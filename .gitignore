@@ -4,3 +4,12 @@ output/*
 __pycache__
 
 .idea/
+
+.ipynb_checkpoints/
+
+
+.project_cache/
+
+data/
+
+.project-cache/

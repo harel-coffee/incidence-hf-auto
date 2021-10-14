@@ -1,0 +1,72 @@
+-  identifier: Echocardiography
+   children:
+      -  identifier: LVEF
+         meaning: Left ventricular ejection fraction
+         unit: '%'
+
+      -  identifier: LVESD
+         meaning: Left ventricular end-systolic diameter
+         unit: cm
+
+      -  identifier: LVEDD
+         meaning: Left ventricular end-diastolic diameter
+         unit: cm
+
+      -  identifier: LVESV
+         meaning: Left ventricular end-systolic volume
+         unit: mL
+
+      -  identifier: LVEDV
+         meaning: Left ventricular end-diastolic volume
+         unit: mL
+
+      -  identifier: IVES
+         meaning: End-systolic interventricular septum diameter
+         unit: cm
+
+      -  identifier: IVED
+         meaning: End-diastolic interventricular septum diameter
+         unit: cm
+
+      -  identifier: LVM
+         meaning: Left ventricular mass
+         unit: g
+
+      -  identifier: LVM_INDEX
+         meaning: Left ventricular mass index_frame
+         unit: g/m2
+
+      -  identifier: E
+         meaning: E-wave
+         unit: cm/s
+
+      -  identifier: A
+         meaning: A-wave
+         unit: cm/s
+
+      -  identifier: E_A
+         meaning: Ratio E-wave/A-wave
+
+      -  identifier: DECELER_TIME
+         meaning: Deceleration time
+         unit: ms
+
+      -  identifier: PWT
+         meaning: Posterior wall thickness
+         unit: cm
+
+      -  identifier: IVRT
+         meaning: Isovolumetric relaxation time
+         unit: ms
+
+      -  identifier: EM_LAT
+         meaning: TDI mitral annulus velocity during early diastole, lateral wall
+         unit: cm/s
+
+      -  identifier: EM_SEP
+         meaning: TDI mitral annulus velocity during early diastole, septal wall
+         unit: cm/s
+
+      -  identifier: LA_VOL
+         meaning: Left atrial volume
+         unit: mL

@@ -20,6 +20,9 @@ scikit-mdr = "*"
 skrebate = "*"
 tpot = "*"
 autoimpute = "*"
+kaleido = "==0.2.1"
+matplotlib-label-lines = "*"
+scikit-survival = "*"
 
 [dev-packages]
 

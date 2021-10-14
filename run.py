@@ -201,21 +201,21 @@ def main():
                     ),
 
             # sub_run(
-            #     method_name,
+            #     cross_validate_predict,
             #     'cv eps',
             #     logger,
             #     lambda: run_cv(X_eps, y_eps, get_pipeline_method),
             # )
             #
             # sub_run(
-            #     method_name,
+            #     cross_validate_predict,
             #     'cv psk',
             #     logger,
             #     lambda: run_cv(X_psk, y_psk, get_pipeline_method),
             # )
             #
             # sub_run(
-            #     method_name, 'psk -> eps', logger,
+            #     cross_validate_predict, 'psk -> eps', logger,
             #     lambda: run_external_validation(
             #         X_psk_train,
             #         y_psk_train,
@@ -225,7 +225,7 @@ def main():
             #     ))
             #
             # sub_run(
-            #     method_name, 'eps -> psk', logger,
+            #     cross_validate_predict, 'eps -> psk', logger,
             #     lambda: run_external_validation(
             #         X_eps_train,
             #         y_eps_train,
@@ -289,10 +289,12 @@ def run_train_test(get_pipeline, X_train, X_test, y_test, y_train):
 
 
 def test_and_get_metrics(pipeline, X_test, y_test):
-    y_score = get_1_class_y_score(DataFrame(
-        pipeline.predict_proba(X_test),
-        index=X_test.index,
-    ))
+    y_score = get_1_class_y_score(
+        DataFrame(
+            pipeline.predict_proba(X_test),
+            index=X_test.index_frame,
+        )
+    )
     result = FoldPrediction(y_true=y_test, y_score=y_score)
     metrics = compute_classification_metrics_fold(
         result,
@@ -384,7 +386,7 @@ def run_cv(X, y, _get_pipeline):
         y,
         _get_pipeline,
         KFold(n_splits=10).split,
-        trained_callback=lambda models, *_: log_model(models),
+        report_batch=lambda models, *_: log_model(models),
         n_jobs=1
     )
 
@@ -428,8 +430,8 @@ def log_pickled(pipeline: Any, path: str) -> None:
         mlflow.log_artifact(path)
 
 
-# for method_name, get_method in METHODS.items():
-#     with mlflow.start_run(run_name=method_name):
+# for cross_validate_predict, get_method in METHODS.items():
+#     with mlflow.start_run(run_name=cross_validate_predict):
 #         result = cross_validate(
 #             X,
 #             y,
@@ -440,7 +442,7 @@ def log_pickled(pipeline: Any, path: str) -> None:
 #         )
 #         mlflow.set_tags({
 #             'federated': False,
-#             'method': method_name,
+#             'method': cross_validate_predict,
 #         })
 #         metrics = compute_classification_metrics_from_result(result['scores'])
 #         for name, value in metrics.items():
