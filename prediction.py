@@ -1,121 +1,90 @@
-# %%
+from typing import Dict, Any, Callable
+
+import argparse
+import logging
+import mlflow
 import pandas
-import pickle
 from matplotlib import pyplot
+from pandas import DataFrame
 from sklearn.preprocessing import FunctionTransformer
-from sksurv.ensemble import RandomSurvivalForest
+from sksurv.linear_model import CoxnetSurvivalAnalysis
 
 from deps.data import load_metadata, load_data_cached
 from deps.logger import logger
-from hcve_lib.cv import cross_validate, predict_survival, kfold_cv, filter_missing_features
-from hcve_lib.data import to_survival_y_records, get_X, get_survival_y, format_identifier_long
-from hcve_lib.evaluation_functions import compute_metrics, c_index
-from hcve_lib.functional import pipe, statements
+from hcve_lib.custom_types import FoldPrediction
+from hcve_lib.cv import cross_validate, predict_survival, kfold_cv, filter_missing_features, lm_cv, lco_cv, train_test, \
+    FoldInput
+from hcve_lib.data import to_survival_y_records, get_X, get_survival_y
+from hcve_lib.evaluation_functions import compute_metrics_folds, c_index
+from hcve_lib.functional import pipe
+from hcve_lib.tracking import log_pickled
 from hcve_lib.utils import remove_column_prefix
 from hcve_lib.wrapped_sklearn import DFColumnTransformer, DFPipeline, DFSimpleImputer, DFOrdinalEncoder, \
-    DFVarianceThreshold
+    DFCoxnetSurvivalAnalysis
 # noinspection PyUnresolvedReferences
 from ignore_warnings import *
 
-pandas.set_option("display.max_columns", None)
-pyplot.rcParams['figure.facecolor'] = 'white'
 
-logger.setLevel('DEBUG')
+def run(
+    cv: Dict[Any, FoldInput],
+    data: DataFrame,
+    metadata: Dict,
+    get_pipeline: Callable,
+) -> Dict[Any, FoldPrediction]:
+    logging.basicConfig(
+        format='[%(asctime)s] %(message)s',
+        datefmt='%H:%M:%S',
+        level=logging.INFO,
+    )
+    logger.setLevel('INFO')
 
-metadata = load_metadata()
-data = load_data_cached(metadata)
-
-X, y = pipe(
-    (
-        get_X(data, metadata),
-        to_survival_y_records(get_survival_y(data, 'NFHF', metadata)),
-    ),
-)
-
-for column in X.columns:
-    if len(X[column].unique()) < 10:
-        X.loc[:, column] = X[column].astype('category')
-    print(f'{X[column].dtype}: {format_identifier_long(column, metadata)}')
-
-categorical_features = [
-    column_name for column_name in X.columns if X[column_name].dtype == 'category'
-]
-
-continuous_features = [
-    column_name for column_name in X.columns if column_name not in categorical_features
-]
-
-pipeline = DFPipeline(
-    [
-        ('zero_variance', DFVarianceThreshold()),
+    X, y = pipe(
         (
-            'imputer',
-            DFColumnTransformer(
-                [
-                    (
-                        'categorical',
-                        DFSimpleImputer(strategy='most_frequent'),
-                        categorical_features,
-                    ),
-                    (
-                        'continuous',
-                        DFSimpleImputer(strategy='mean'),
-                        continuous_features,
-                    ),
-                ],
-            )
+            get_X(data, metadata),
+            to_survival_y_records(get_survival_y(data, 'NFHF', metadata)),
         ),
-        (
-            'remove_prefix',
-            FunctionTransformer(remove_column_prefix),
-        ),
-        # ('imputer', MiceForest(random_state=5465132, iterations=5)),
-        (
-            'scaler',
-            DFColumnTransformer(
-                [(
-                    'categorical',
-                    DFOrdinalEncoder(),
-                    categorical_features,
-                )],
-                remainder='passthrough',
-            )
-        ),
-        (
-            'remove_prefix2',
-            FunctionTransformer(remove_column_prefix),
-        ),
-        ('estimator', RandomSurvivalForest(verbose=5)),
-    ],
-    # memory='.project-cache'
-)
+    )
 
-X, y = pipe(
-    (
-        get_X(data, metadata),
-        to_survival_y_records(get_survival_y(data, 'NFHF', metadata)),
-    ),
-)
+    for column in X.columns:
+        if len(X[column].unique()) < 10:
+            X.loc[:, column] = X[column].astype('category')
+        # print(f'{X[column].dtype}: {format_identifier_long(column, metadata)}')
 
-# cv = train_test(
-#     data,
-#     train_filter=lambda _data: _data['STUDY'].isin(['HEALTHABC', 'PREDICTOR', 'PROSPER']),
-#     test_filter=lambda _data: _data['STUDY'] == 'ASCOT'
-# )
+    # if cv == 'reproduce':
+    #     cv = train_test(
+    #         data,
+    #         train_filter=lambda _data: _data['STUDY'].isin(['HEALTHABC', 'PREDICTOR', 'PROSPER']),
+    #         test_filter=lambda _data: _data['STUDY'] == 'ASCOT'
+    #     )
+    # elif args.cv == 'lco':
+    #     cv = lco_cv(data.groupby('STUDY'))
+    # elif args.cv == '10-fold':
+    #     cv = kfold_cv(data, n_splits=10, shuffle=True, random_state=243)
+    # elif args.cv == 'lm':
+    #     cv = lm_cv(data.groupby('STUDY'))
+    # else:
+    #     raise Exception('No CV')
 
-# cv = lco_cv(data.groupby('STUDY'))
-cv = kfold_cv(data, n_splits=10, shuffle=True, random_state=243)
-# cv = lm_cv(data.groupby('STUDY'))
+    return cross_validate(
+        X,
+        y,
+        get_pipeline,
+        predict_survival,
+        cv,
+        lambda x_train, x_test: filter_missing_features(x_train, x_test),
+        # n_jobs=1,
+    )
 
-folds_prediction = cross_validate(
-    X,
-    y,
-    pipeline,
-    predict_survival,
-    cv,
-    lambda x_train, x_test: statements(mask := filter_missing_features(x_train, x_test), ),
-    # n_jobs=1,
-)
 
-with open('./data/prediction.data', 'wb') as file:
-    pickle.dump(compute_metrics(folds_prediction, [c_index]), file)
+def start_method_run(name: str) -> mlflow.ActiveRun:
+    # logger.info(f'\t- {name}')
+    run = mlflow.start_run(run_name=name, nested=True)
+    mlflow.log_param('run_name', name)
+    return run
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cv', choices=('lco', '10-fold', 'lm', 'reproduce'))
+    args = parser.parse_args()
+    run(**vars(args))

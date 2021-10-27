@@ -6,10 +6,18 @@ from config import DATA_MAIN_PATH, DATA_FLEMENGHO_PATH
 from deps.logger import logger
 from deps.memory import memory
 from hcve_lib.data import get_feature_subset, \
-    sanitize_data_inplace, get_variable_identifier, Metadata
+    sanitize_data_inplace, get_variable_identifier, Metadata, get_X
 from hcve_lib.formatting import format_number
 from hcve_lib.preprocessing import Step
 from hcve_lib.preprocessing import perform, log_step, remove_cohorts
+
+
+def get_homage_X(
+    data: DataFrame,
+    metadata: Metadata,
+) -> DataFrame:
+    X = get_X(data, metadata)
+    return X.drop(['IDNR', 'VISIT', 'STUDY_NUM', 'STUDY'], axis=1)
 
 
 def load_data(metadata: Metadata) -> DataFrame:

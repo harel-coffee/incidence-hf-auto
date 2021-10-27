@@ -10,7 +10,6 @@ jupyter = "*"
 missingno = "*"
 mlflow = "*"
 dtale = "*"
-pandas-profiling = "*"
 deap = "*"
 update-checker = "*"
 tqdm = "*"
@@ -22,9 +21,15 @@ tpot = "*"
 autoimpute = "*"
 kaleido = "==0.2.1"
 matplotlib-label-lines = "*"
-scikit-survival = "*"
+drawsvg = "*"
+dataprep = "*"
+miceforest = "*"
 
 [dev-packages]
+mlflow = "*"
 
 [requires]
 python_version = "3.9"
+
+[packages.pandas-profiling]
+extras = [ "notebook",]
