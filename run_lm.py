@@ -13,7 +13,7 @@ from hcve_lib.utils import transpose_dict, partial2
 from hcve_lib.wrapped_sklearn import DFCoxnetSurvivalAnalysis
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
-from deps.pipelines import get_pipeline
+from deps.methods import get_pipeline
 from deps.prediction import run_prediction
 
 

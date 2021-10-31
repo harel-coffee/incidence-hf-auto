@@ -4,12 +4,12 @@ from typing import List
 
 import numpy as np
 import optuna
-from mlflow import get_experiment_by_name, start_run, set_tracking_uri, set_tag, log_metric, log_params
+from mlflow import get_experiment_by_name, start_run, set_tracking_uri, set_tag, log_params
 
-from deps.common import get_variables_cached, METHODS_DEFINITIONS
+from deps.common import get_variables
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
-from deps.pipelines import get_pipeline
+from deps.methods import METHODS_DEFINITIONS
 from hcve_lib.custom_types import FoldPrediction
 from hcve_lib.cv import Optimize, predict_survival
 from hcve_lib.cv import lco_cv
@@ -52,7 +52,7 @@ early_stopping = EarlyStoppingCallback(10, direction=direction)
 
 
 def run_lco_optimized(methods: List[str]) -> None:
-    data, metadata, X, y = get_variables_cached()
+    data, metadata, X, y = get_variables()
 
     cv = lco_cv(data.groupby('STUDY'))
 
@@ -71,20 +71,23 @@ def run_lco_optimized(methods: List[str]) -> None:
                     nested=True,
                 ):
                     pipeline = Optimize(
-                        lambda: get_pipeline(method_definition['get_estimator'](), X),
+                        lambda: method_definition['get_estimator'](X),
                         method_definition['optuna'],
                         scoring,
                         predict_survival,
                         [fold],
                         optimize_params={
                             'n_jobs': -1,
-                            'n_trials': 1000
+                            'n_trials': 50,
                         },
                         optimize_callbacks=[
-                            EarlyStoppingCallback(early_stopping_rounds=100, direction='maximize')
+                            EarlyStoppingCallback(early_stopping_rounds=20, direction='maximize')
                         ],
                     )
-                    pipeline.fit(X, y)
+                    pipeline.fit(
+                        X,
+                        method_definition['process_y'](y),
+                    )
                     log_params(pipeline.study.best_trial.user_attrs)
                     log_metrics_ci(pipeline.study.best_trial.user_attrs['metrics'])
                     set_tag("method_name", method_name)
