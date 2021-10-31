@@ -329,7 +329,7 @@
       -  identifier: FCV
          identifier_tte: FUFCV
          type: survival_target
-         unit_tte: Years
+         unit_tte: Days
          meaning: Cardiovascular death
          mapping: { 0: No, 1: Yes }
 
@@ -343,6 +343,6 @@
       -  identifier: FNFHF
          type: survival_target
          identifier_tte: FUFNFHF
-         unit_tte: Years
+         unit_tte: Days
          meaning: Fatal or non-fatal heart failure
          mapping: { 0: No, 1: Yes }

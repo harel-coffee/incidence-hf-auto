@@ -1,17 +1,15 @@
-from hcve_lib.data import to_survival_y_records, get_survival_y
+from numbers import Rational
 
-from deps.data import load_metadata, load_data_cached, get_homage_X
-from deps.memory import memory
+from sksurv.metrics import brier_score
 
-
-def get_variables():
-    metadata = load_metadata()
-    data = load_data_cached(metadata)
-    X, y = (
-        get_homage_X(data, metadata),
-        to_survival_y_records(get_survival_y(data, 'NFHF', metadata)),
-    )
-    return data, metadata, X, y
+from hcve_lib.custom_types import FoldPrediction
 
 
-get_variables_cached = memory.cache(get_variables)
+def brier(fold: FoldPrediction, time_point: Rational) -> float:
+    return brier_score(
+            fold['y_train'],
+            fold['y_true'],
+            [fn(time_point) for fn in fold['model'] \
+                .predict_survival_function(fold['X_test'])],
+            365*3,
+        )[1][0]
