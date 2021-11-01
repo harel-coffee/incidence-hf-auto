@@ -68,7 +68,9 @@ def load_data(metadata: Metadata) -> DataFrame:
                 log=log_step('HF individuals at baseline removed', metadata),
             ),
             Step(
-                action=lambda current: current[~current['FCV'].isna() & ~current['NFHF'].isna()],
+                action=lambda current: current[
+                    # (~current['FCV'].isna() & ~current['FUFCV'].isna()) &
+                    (~current['NFHF'].isna() & ~current['FUNFHF'].isna())],
                 log=log_step('Missing outcome individuals removed', metadata),
             ),
             Step(
@@ -119,7 +121,6 @@ def load_raw_data():
     data_main.drop(data_main[data_main['STUDY'] == 'FLEMENGHO'].index, inplace=True)
 
     data_flemengho = load_flemengho()
-
     return pandas\
         .concat([data_main, data_flemengho])\
         .set_index('IDNR', drop=False)

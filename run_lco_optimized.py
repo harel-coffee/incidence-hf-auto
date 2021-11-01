@@ -1,5 +1,6 @@
 import argparse
 import operator
+from functools import partial
 from typing import List
 
 import numpy as np
@@ -71,10 +72,10 @@ def run_lco_optimized(methods: List[str]) -> None:
                     nested=True,
                 ):
                     pipeline = Optimize(
-                        lambda: method_definition['get_estimator'](X),
+                        partial(method_definition['get_estimator'], verbose=1),
                         method_definition['optuna'],
                         scoring,
-                        predict_survival,
+                        method_definition['predict'],
                         [fold],
                         optimize_params={
                             'n_jobs': -1,

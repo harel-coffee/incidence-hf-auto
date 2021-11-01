@@ -6,8 +6,8 @@ import mlflow
 from pandas import DataFrame
 
 from deps.logger import logger
-from hcve_lib.custom_types import FoldPrediction
-from hcve_lib.cv import cross_validate, predict_survival, filter_missing_features, FoldInput, Target
+from hcve_lib.custom_types import FoldPrediction, Target, FoldInput
+from hcve_lib.cv import cross_validate, predict_survival, filter_missing_features
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
 
@@ -17,6 +17,8 @@ def run_prediction(
     X: DataFrame,
     y: Target,
     get_pipeline: Callable,
+    predict: Callable,
+    n_jobs=-1,
 ) -> Dict[Any, FoldPrediction]:
     logging.basicConfig(
         format='[%(asctime)s] %(message)s',
@@ -33,10 +35,10 @@ def run_prediction(
         X,
         y,
         get_pipeline,
-        predict_survival,
+        predict,
         cv,
         lambda x_train, x_test: filter_missing_features(x_train, x_test),
-        n_jobs=-1,
+        n_jobs=n_jobs,
     )
 
 
