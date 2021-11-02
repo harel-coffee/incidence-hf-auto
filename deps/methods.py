@@ -19,6 +19,9 @@ from hcve_lib.wrapped_sklearn import DFCoxnetSurvivalAnalysis, DFPipeline, DFCol
 
 def gb_optuna(trial: Trial) -> Tuple[Trial, Dict]:
     hyperparameters = {
+        '__cross_validate__': {
+            'missing_fraction': trial.suggest_uniform('__cross_validate__missing_fraction', 0.1, 1),
+        },
         'estimator': {
             'learning_rate': trial.suggest_uniform('estimator_learning_rate', 0, 1),
             'max_depth': trial.suggest_int('estimator_max_depth', 1, 10),
@@ -36,6 +39,9 @@ def gb_optuna(trial: Trial) -> Tuple[Trial, Dict]:
 
 def coxnet_optuna(trial: Trial) -> Tuple[Trial, Dict]:
     hyperparameters = {
+        '__cross_validate__': {
+            'missing_fraction': trial.suggest_uniform('__cross_validate__missing_fraction', 0.1, 1),
+        },
         'estimator': {
             'l1_ratio': 1 - trial.suggest_loguniform('estimator_n_alphas', 0.1, 1),
         }

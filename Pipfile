@@ -26,6 +26,8 @@ miceforest = "*"
 pycox = "*"
 torchtuples = "*"
 torch = "*"
+humanize = "*"
+pytz = "*"
 
 [dev-packages]
 mlflow = "*"

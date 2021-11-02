@@ -10,6 +10,7 @@ from mlflow import get_experiment_by_name, start_run, set_tracking_uri, set_tag,
 from deps.common import get_variables
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
+from deps.logger import logger
 from deps.methods import METHODS_DEFINITIONS
 from hcve_lib.custom_types import FoldPrediction
 from hcve_lib.cv import Optimize, predict_survival
@@ -36,6 +37,7 @@ class EarlyStoppingCallback(object):
             ValueError(f"invalid direction: {direction}")
 
     def __call__(self, study: optuna.Study, trial: optuna.Trial) -> None:
+        print('iter', self._iter)
         """Do early stopping."""
         if self._operator(study.best_value, self._score):
             self._iter = 0
@@ -49,15 +51,19 @@ class EarlyStoppingCallback(object):
 
 direction = "maximize"
 study = optuna.create_study(direction=direction)
-early_stopping = EarlyStoppingCallback(10, direction=direction)
+
+
+def test_callback(trial):
+    print("TRIAL")
+    ...
 
 
 def run_lco_optimized(methods: List[str]) -> None:
     data, metadata, X, y = get_variables()
-
+    logger.info('Data loaded')
     cv = lco_cv(data.groupby('STUDY'))
-
     set_tracking_uri('http://localhost:5000')
+    optuna.logging.set_verbosity(optuna.logging.INFO)
 
     for method_name in methods:
         method_definition = METHODS_DEFINITIONS[method_name]
@@ -72,7 +78,7 @@ def run_lco_optimized(methods: List[str]) -> None:
                     nested=True,
                 ):
                     pipeline = Optimize(
-                        partial(method_definition['get_estimator'], verbose=1),
+                        partial(method_definition['get_estimator'], verbose=0),
                         method_definition['optuna'],
                         scoring,
                         method_definition['predict'],
@@ -82,6 +88,7 @@ def run_lco_optimized(methods: List[str]) -> None:
                             'n_trials': 50,
                         },
                         optimize_callbacks=[
+                            test_callback,
                             EarlyStoppingCallback(early_stopping_rounds=20, direction='maximize')
                         ],
                     )
@@ -93,30 +100,6 @@ def run_lco_optimized(methods: List[str]) -> None:
                     log_metrics_ci(pipeline.study.best_trial.user_attrs['metrics'])
                     set_tag("method_name", method_name)
                     log_pickled(pipeline.study, 'study')
-
-        #
-        # #
-        # for estimator_name, estimator in methods.items():
-        #     with start_run(run_name=estimator_name, experiment_id=experiment.experiment_id):
-        #         result = run_prediction(
-        #             cv,
-        #             data,
-        #             metadata,
-        #             lambda: get_pipeline(estimator, X),
-        #         )
-        # See the tracking docs for a list of
-        #         log_pickled(result, 'result')
-        #         metrics_ci = compute_metrics_ci(result['predictions'], [c_index])
-        #         log_metrics_ci(metrics_ci)
-        #
-        #         metrics_folds = compute_metrics_folds(result['predictions'], [c_index])
-        #         for fold_name, fold_metrics in metrics_folds.items():
-        #             with start_run(run_name=fold_name, nested=True, experiment_id=experiment.experiment_id):
-        #                 log_metrics(fold_metrics)
-
-        # for name, metrics_fold in metrics_folds.items():
-        #     with start_method_run(name):
-        #
 
 
 def scoring(estimator, X_test, y_true):
