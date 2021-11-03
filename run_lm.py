@@ -7,7 +7,7 @@ from common import brier
 from deps.common import get_variables
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
-from deps.methods import METHODS_DEFINITIONS
+from pipelines import METHODS_DEFINITIONS
 from deps.prediction import run_prediction
 from hcve_lib.cv import lm_cv
 from hcve_lib.evaluation_functions import c_index, get_2_level_groups, compute_metric_fold

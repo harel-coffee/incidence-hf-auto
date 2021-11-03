@@ -7,19 +7,19 @@ from typing import List
 import mlflow
 import numpy as np
 import optuna
-from mlflow import get_experiment_by_name, start_run, set_tracking_uri, set_tag, log_params
+from mlflow import get_experiment_by_name, start_run, set_tracking_uri, set_tag
 from optuna.trial import TrialState
 
 from deps.common import get_variables
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
 from deps.logger import logger
-from deps.methods import METHODS_DEFINITIONS
 from hcve_lib.custom_types import FoldPrediction
 from hcve_lib.cv import Optimize
 from hcve_lib.cv import lco_cv
 from hcve_lib.evaluation_functions import c_index
 from hcve_lib.tracking import log_pickled, log_metrics_ci, log_text
+from pipelines import get_pipelines
 
 
 class EarlyStoppingCallback(object):
@@ -87,7 +87,7 @@ def run_lco_optimized(methods: List[str]) -> None:
 
     experiment = get_experiment_by_name('lco_optimized')
     for method_name in methods:
-        method_definition = METHODS_DEFINITIONS[method_name]
+        method_definition = get_pipelines()[method_name]
         # TODO: fix
         # mlflow_callback = MLflowCallback(nest_trials=True)
         with start_run(run_name=method_name, experiment_id=experiment.experiment_id):

@@ -5,11 +5,11 @@ from mlflow import get_experiment_by_name, start_run, set_tracking_uri, set_tag
 
 from common import log_result
 from deps.common import get_variables
-from deps.methods import METHODS_DEFINITIONS
 from hcve_lib.cv import train_test
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
 from deps.prediction import run_prediction
+from pipelines import get_pipelines
 
 
 def run_lco(selected_methods: List[str]):
@@ -24,7 +24,7 @@ def run_lco(selected_methods: List[str]):
     for method_name in selected_methods:
         with start_run(run_name=method_name, experiment_id=experiment.experiment_id):
             set_tag('method_name', method_name)
-            current_method = METHODS_DEFINITIONS[method_name]
+            current_method = get_pipelines()[method_name]
 
             result = run_prediction(
                 cv,

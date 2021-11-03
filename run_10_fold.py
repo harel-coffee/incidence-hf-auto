@@ -10,7 +10,7 @@ from hcve_lib.tracking import log_pickled, log_metrics_ci
 from hcve_lib.wrapped_sklearn import DFCoxnetSurvivalAnalysis
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
-from deps.methods import get_pipeline
+from pipelines import get_standard_pipeline
 from deps.prediction import run_prediction
 
 experiment = get_experiment_by_name('10_fold')
@@ -35,7 +35,7 @@ for estimator_name, estimator in methods.items():
             cv,
             data,
             metadata,
-            lambda: get_pipeline(estimator, X),
+            lambda: get_standard_pipeline(estimator, X),
         )
 
         log_pickled(result, 'result')
