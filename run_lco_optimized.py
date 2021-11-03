@@ -1,11 +1,14 @@
 import argparse
 import operator
 from functools import partial
+from logging import INFO
 from typing import List
 
+import mlflow
 import numpy as np
 import optuna
 from mlflow import get_experiment_by_name, start_run, set_tracking_uri, set_tag, log_params
+from optuna.trial import TrialState
 
 from deps.common import get_variables
 # noinspection PyUnresolvedReferences
@@ -13,10 +16,10 @@ from deps.ignore_warnings import *
 from deps.logger import logger
 from deps.methods import METHODS_DEFINITIONS
 from hcve_lib.custom_types import FoldPrediction
-from hcve_lib.cv import Optimize, predict_survival
+from hcve_lib.cv import Optimize
 from hcve_lib.cv import lco_cv
 from hcve_lib.evaluation_functions import c_index
-from hcve_lib.tracking import log_pickled, log_metrics_ci
+from hcve_lib.tracking import log_pickled, log_metrics_ci, log_text
 
 
 class EarlyStoppingCallback(object):
@@ -53,21 +56,38 @@ direction = "maximize"
 study = optuna.create_study(direction=direction)
 
 
-def test_callback(trial):
-    print("TRIAL")
-    ...
+def mlflow_runs(study, _):
+    set_tag(
+        'trials',
+        len(study.trials),
+    )
+    mlflow.log_figure(
+        optuna.visualization.plot_optimization_history(study),
+        'optimization_history.html',
+    )
+    mlflow.log_figure(
+        optuna.visualization.plot_parallel_coordinate(study),
+        'parallel_coordinate_hyperparams.html',
+    )
+    if len(study.get_trials(states=[TrialState.COMPLETE])) > 1:
+        mlflow.log_figure(
+            optuna.visualization.plot_param_importances(study),
+            'plot_hyperparam_importances.html',
+        )
+    return study
 
 
 def run_lco_optimized(methods: List[str]) -> None:
     data, metadata, X, y = get_variables()
+    logger.setLevel(INFO)
     logger.info('Data loaded')
     cv = lco_cv(data.groupby('STUDY'))
     set_tracking_uri('http://localhost:5000')
-    optuna.logging.set_verbosity(optuna.logging.INFO)
+    optuna.logging.set_verbosity(optuna.logging.DEBUG)
 
+    experiment = get_experiment_by_name('lco_optimized')
     for method_name in methods:
         method_definition = METHODS_DEFINITIONS[method_name]
-        experiment = get_experiment_by_name('lco_optimized')
         # TODO: fix
         # mlflow_callback = MLflowCallback(nest_trials=True)
         with start_run(run_name=method_name, experiment_id=experiment.experiment_id):
@@ -85,18 +105,22 @@ def run_lco_optimized(methods: List[str]) -> None:
                         [fold],
                         optimize_params={
                             'n_jobs': -1,
-                            'n_trials': 50,
+                            'n_trials': 500,
                         },
                         optimize_callbacks=[
-                            test_callback,
+                            mlflow_runs,
                             EarlyStoppingCallback(early_stopping_rounds=20, direction='maximize')
                         ],
+                        logger=logger,
                     )
                     pipeline.fit(
                         X,
                         method_definition['process_y'](y),
                     )
-                    log_params(pipeline.study.best_trial.user_attrs)
+                    log_text(pipeline.study.best_trial.user_attrs['pipeline'], 'pipeline.txt')
+                    mlflow.log_param(
+                        'hyperparameters', pipeline.study.best_trial.user_attrs['hyperparameters']
+                    )
                     log_metrics_ci(pipeline.study.best_trial.user_attrs['metrics'])
                     set_tag("method_name", method_name)
                     log_pickled(pipeline.study, 'study')

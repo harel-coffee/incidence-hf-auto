@@ -12,6 +12,7 @@ from deps.common import RANDOM_STATE, CACHE_DIR
 from hcve_lib.custom_types import Estimator
 from hcve_lib.cv import predict_nn, predict_survival
 from hcve_lib.data import to_survival_y_records, to_survival_y_pair
+from hcve_lib.transformers import MiceForest
 from hcve_lib.utils import remove_column_prefix, Debug
 from hcve_lib.wrapped_sklearn import DFCoxnetSurvivalAnalysis, DFPipeline, DFColumnTransformer, DFSimpleImputer, \
     DFOrdinalEncoder
@@ -71,7 +72,7 @@ class MethodDefinition:
 
 METHODS_DEFINITIONS = {
     'coxnet': {
-        'get_estimator': lambda X, verbose: get_pipeline(
+        'get_estimator': lambda X, verbose=0: get_pipeline(
             DFCoxnetSurvivalAnalysis(fit_baseline_model=True, verbose=verbose),
             X,
         ),
@@ -80,7 +81,7 @@ METHODS_DEFINITIONS = {
         'predict': predict_survival,
     },
     'gb': {
-        'get_estimator': lambda X, verbose: get_pipeline(
+        'get_estimator': lambda X, verbose=0: get_pipeline(
             GradientBoostingSurvivalAnalysis(random_state=RANDOM_STATE, verbose=verbose),
             X,
         ),
@@ -89,14 +90,14 @@ METHODS_DEFINITIONS = {
         'predict': predict_survival,
     },
     'rsf': {
-        'get_estimator': lambda X, verbose:
+        'get_estimator': lambda X, verbose=0:
         get_pipeline(RandomSurvivalForest(random_state=RANDOM_STATE), X),
         'process_y': to_survival_y_records,
         'optuna': rsf_optuna,
         'predict': predict_survival,
     },
     'pycox': {
-        'get_estimator': lambda X, verbose: get_pycox_pipeline(X, verbose=verbose),
+        'get_estimator': lambda X, verbose=0: get_pycox_pipeline(X, verbose=verbose),
         'process_y': to_survival_y_pair,
         'predict': predict_nn,
     }
@@ -191,8 +192,7 @@ def get_pipeline_preprocessing(X: DataFrame) -> Tuple:
             'remove_prefix',
             FunctionTransformer(remove_column_prefix),
         ),
-        # TODO
-        # ('imputer', MiceForest(random_state=5465132, iterations=5)),
+        # ('imputer', MiceForest(random_state=5465132, iterations=1)),
         (
             'scaler',
             DFColumnTransformer(

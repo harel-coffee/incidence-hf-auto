@@ -4,7 +4,7 @@ from typing import List
 from mlflow import get_experiment_by_name, start_run, log_metrics, set_tracking_uri, set_tag
 from sksurv.ensemble import RandomSurvivalForest, GradientBoostingSurvivalAnalysis
 
-from common import brier
+from common import brier, log_result
 from deps.common import get_variables_cached, get_variables
 from deps.methods import METHODS_DEFINITIONS, get_pipeline
 from hcve_lib.cv import lco_cv
@@ -36,10 +36,9 @@ def run_lco(selected_methods: List[str]):
                 current_method['predict'],
                 n_jobs=-1,
             )
-            brier_3_years = partial2(brier, time_point=3 * 365)
-            metrics_ci = compute_metrics_ci(result['predictions'], [c_index, brier_3_years], y)
-            log_pickled(result, 'result')
-            log_metrics_ci(metrics_ci)
+            log_result(X, y, current_method, result)
+
+            brier_3_years = partial2(brier, kwargs={'time_point': 3 * 365}, name='brier_3_years')
             metrics_folds = compute_metrics_folds(
                 result['predictions'], [c_index, brier_3_years], y
             )
