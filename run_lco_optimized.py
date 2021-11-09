@@ -18,63 +18,11 @@ from hcve_lib.custom_types import FoldPrediction
 from hcve_lib.cv import Optimize
 from hcve_lib.cv import lco_cv
 from hcve_lib.evaluation_functions import c_index
+from hcve_lib.optimization import EarlyStoppingCallback, optuna_report_mlflow
 from hcve_lib.tracking import log_pickled, log_metrics_ci, log_text
 from pipelines import get_pipelines
 
-
-class EarlyStoppingCallback(object):
-    """Early stopping callback for Optuna."""
-
-    def __init__(self, early_stopping_rounds: int, direction: str = "minimize") -> None:
-        self.early_stopping_rounds = early_stopping_rounds
-
-        self._iter = 0
-
-        if direction == "minimize":
-            self._operator = operator.lt
-            self._score = np.inf
-        elif direction == "maximize":
-            self._operator = operator.gt
-            self._score = -np.inf
-        else:
-            ValueError(f"invalid direction: {direction}")
-
-    def __call__(self, study: optuna.Study, trial: optuna.Trial) -> None:
-        print('iter', self._iter)
-        """Do early stopping."""
-        if self._operator(study.best_value, self._score):
-            self._iter = 0
-            self._score = study.best_value
-        else:
-            self._iter += 1
-
-        if self._iter >= self.early_stopping_rounds:
-            study.stop()
-
-
-direction = "maximize"
-study = optuna.create_study(direction=direction)
-
-
-def mlflow_runs(study, _):
-    set_tag(
-        'trials',
-        len(study.trials),
-    )
-    mlflow.log_figure(
-        optuna.visualization.plot_optimization_history(study),
-        'optimization_history.html',
-    )
-    mlflow.log_figure(
-        optuna.visualization.plot_parallel_coordinate(study),
-        'parallel_coordinate_hyperparams.html',
-    )
-    if len(study.get_trials(states=[TrialState.COMPLETE])) > 1:
-        mlflow.log_figure(
-            optuna.visualization.plot_param_importances(study),
-            'plot_hyperparam_importances.html',
-        )
-    return study
+study = optuna.create_study(direction='maximize')
 
 
 def run_lco_optimized(methods: List[str]) -> None:
@@ -98,30 +46,30 @@ def run_lco_optimized(methods: List[str]) -> None:
                     nested=True,
                 ):
                     pipeline = Optimize(
-                        partial(method_definition['get_estimator'], verbose=0),
-                        method_definition['optuna'],
+                        partial(method_definition.get_estimator, verbose=0),
+                        method_definition.optuna,
                         scoring,
-                        method_definition['predict'],
-                        [fold],
+                        method_definition.predict,
+                        lambda _1, _2: [fold],
                         optimize_params={
                             'n_jobs': -1,
-                            'n_trials': 500,
+                            'n_trials': 200,
                         },
                         optimize_callbacks=[
-                            mlflow_runs,
-                            EarlyStoppingCallback(early_stopping_rounds=20, direction='maximize')
+                            optuna_report_mlflow,
+                            EarlyStoppingCallback(early_stopping_rounds=50, direction='maximize')
                         ],
                         logger=logger,
                     )
                     pipeline.fit(
                         X,
-                        method_definition['process_y'](y),
+                        method_definition.process_y(y),
                     )
-                    log_text(pipeline.study.best_trial.user_attrs['pipeline'], 'pipeline.txt')
+                    log_text(pipeline.study.best_trial.user_attrs.pipeline, 'pipeline.txt')
                     mlflow.log_param(
-                        'hyperparameters', pipeline.study.best_trial.user_attrs['hyperparameters']
+                        'hyperparameters', pipeline.study.best_trial.user_attrs.hyperparameters
                     )
-                    log_metrics_ci(pipeline.study.best_trial.user_attrs['metrics'])
+                    log_metrics_ci(pipeline.study.best_trial.user_attrs.metrics)
                     set_tag("method_name", method_name)
                     log_pickled(pipeline.study, 'study')
 

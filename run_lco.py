@@ -5,13 +5,13 @@ from mlflow import get_experiment_by_name, start_run, log_metrics, set_tracking_
 
 from common import brier, log_result
 from deps.common import get_variables
-from pipelines import METHODS_DEFINITIONS
 from hcve_lib.cv import lco_cv
 from hcve_lib.evaluation_functions import compute_metrics_folds, c_index
 from hcve_lib.utils import partial2
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
 from deps.prediction import run_prediction
+from pipelines import get_pipelines
 
 
 def run_lco(selected_methods: List[str]):
@@ -23,21 +23,35 @@ def run_lco(selected_methods: List[str]):
     for method_name in selected_methods:
         with start_run(run_name=method_name, experiment_id=experiment.experiment_id):
             set_tag('method_name', method_name)
-            current_method = METHODS_DEFINITIONS[method_name]
+            current_method = get_pipelines()[method_name]
 
             result = run_prediction(
                 cv,
                 X,
-                current_method['process_y'](y),
-                current_method['get_estimator'],
-                current_method['predict'],
+                y,
+                current_method.get_estimator,
+                current_method.predict,
                 n_jobs=-1,
             )
             log_result(X, y, current_method, result)
 
-            brier_3_years = partial2(brier, kwargs={'time_point': 3 * 365}, name='brier_3_years')
             metrics_folds = compute_metrics_folds(
-                result['predictions'], [c_index, brier_3_years], y
+                result,
+                [
+                    partial2(c_index, kwargs={
+                        'X': X,
+                        'y': y
+                    }),
+                    partial2(
+                        brier,
+                        kwargs={
+                            'X': X,
+                            'y': y,
+                            'time_point': 3 * 365,
+                        },
+                        name='brier_3_years',
+                    ),
+                ],
             )
             for fold_name, fold_metrics in metrics_folds.items():
                 with start_run(

@@ -1,52 +1,55 @@
-from mlflow import get_experiment_by_name, start_run, log_metrics
-from sksurv.ensemble import RandomSurvivalForest, GradientBoostingSurvivalAnalysis
+import argparse
+from typing import List
 
-from deps.data import load_metadata, load_data_cached
-from hcve_lib.cv import kfold_cv
-from hcve_lib.data import to_survival_y_records, get_X, get_survival_y
-from hcve_lib.evaluation_functions import compute_metrics_folds, c_index, compute_metrics_ci
-from hcve_lib.functional import pipe
-from hcve_lib.tracking import log_pickled, log_metrics_ci
-from hcve_lib.wrapped_sklearn import DFCoxnetSurvivalAnalysis
+from mlflow import get_experiment_by_name, start_run, set_tracking_uri, set_tag
+
+from common import log_result
+from deps.common import get_variables, get_variables_cached
+from deps.data import get_homage_X
+from deps.logger import logger
+from hcve_lib.cv import train_test_filter, kfold_cv, kfold_stratified_cv
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
-from pipelines import get_standard_pipeline
 from deps.prediction import run_prediction
+from hcve_lib.data import get_survival_y
+from pipelines import get_pipelines
 
-experiment = get_experiment_by_name('10_fold')
-metadata = load_metadata()
-data = load_data_cached(metadata)
-X, y = pipe(
-    (
-        get_X(data, metadata),
-        to_survival_y_records(get_survival_y(data, 'NFHF', metadata)),
-    ),
-)
-cv = kfold_cv(data, n_splits=10, shuffle=True, random_state=243)
-methods = {
-    'coxnet': DFCoxnetSurvivalAnalysis(),
-    'gb': GradientBoostingSurvivalAnalysis(verbose=3),
-    'rsf': RandomSurvivalForest(verbose=3),
-}
 
-for estimator_name, estimator in methods.items():
-    with start_run(run_name=estimator_name, experiment_id=experiment.experiment_id):
-        result = run_prediction(
-            cv,
-            data,
-            metadata,
-            lambda: get_standard_pipeline(estimator, X),
-        )
+def run(selected_methods: List[str]):
+    set_tracking_uri('http://localhost:5000')
+    experiment = get_experiment_by_name('10_fold')
+    data, metadata, X, y = get_variables_cached()
+    for method_name in selected_methods:
+        with start_run(run_name=method_name, experiment_id=experiment.experiment_id):
+            set_tag('method_name', method_name)
+            for study_name, study_data in data.groupby('STUDY'):
+                with start_run(
+                    run_name=study_name, experiment_id=experiment.experiment_id, nested=True
+                ):
+                    X_, y_ = (
+                        get_homage_X(study_data, metadata),
+                        get_survival_y(study_data, 'NFHF', metadata),
+                    )
+                    cv = kfold_stratified_cv(
+                        study_data, y.loc[study_data.index]['label'], n_splits=10
+                    )
+                    for train_index, test_index in cv.values():
+                        print(study_data.iloc[test_index]['NFHF'].value_counts())
 
-        log_pickled(result, 'result')
-        metrics_ci = compute_metrics_ci(result['predictions'], [c_index])
-        log_metrics_ci(metrics_ci)
+                    current_method = get_pipelines()[method_name]
+                    result = run_prediction(
+                        cv,
+                        X_,
+                        current_method['process_y'](y_),
+                        current_method['get_estimator'],
+                        current_method['predict'],
+                        n_jobs=-1,
+                    )
+                    log_result(X, y, current_method, result)
 
-        metrics_folds = compute_metrics_folds(result['predictions'], [c_index])
-        for fold_name, fold_metrics in metrics_folds.items():
-            with start_run(run_name=fold_name, nested=True, experiment_id=experiment.experiment_id):
-                log_metrics(fold_metrics)
 
-# for name, metrics_fold in metrics_folds.items():
-#     with start_method_run(name):
-#
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('selected_methods', metavar='METHOD', type=str, nargs='+')
+    args = parser.parse_args()
+    run(**vars(args))

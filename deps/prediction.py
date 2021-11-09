@@ -1,15 +1,15 @@
 import argparse
 import logging
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, Hashable
 
 import mlflow
 from pandas import DataFrame
 
-from deps.logger import logger
-from hcve_lib.custom_types import FoldPrediction, Target, FoldInput
-from hcve_lib.cv import cross_validate, predict_survival, filter_missing_features
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
+from deps.logger import logger
+from hcve_lib.custom_types import FoldPrediction, Target, FoldInput
+from hcve_lib.cv import cross_validate, filter_missing_features
 
 
 def run_prediction(
@@ -19,7 +19,7 @@ def run_prediction(
     get_pipeline: Callable,
     predict: Callable,
     n_jobs=-1,
-) -> Dict[Any, FoldPrediction]:
+) -> Dict[Hashable, FoldPrediction]:
     logging.basicConfig(
         format='[%(asctime)s] %(message)s',
         datefmt='%H:%M:%S',

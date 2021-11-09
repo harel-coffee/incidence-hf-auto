@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, Tuple, Optional, List, Type
 
 import numpy
 import torchtuples as tt
@@ -6,91 +6,180 @@ from optuna import Trial
 from pandas import DataFrame
 from pycox.models import CoxPH
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
+from sklearn.tree import DecisionTreeRegressor
 from sksurv.ensemble import GradientBoostingSurvivalAnalysis, RandomSurvivalForest
+from torch import nn
 
 from deps.common import RANDOM_STATE, CACHE_DIR
+from deps.custom_types import MethodDefinition
 from hcve_lib.custom_types import Estimator
-from hcve_lib.cv import predict_nn, predict_survival
-from hcve_lib.data import to_survival_y_records, to_survival_y_pair
+from hcve_lib.cv import predict_survival, CROSS_VALIDATE_KEY
+from hcve_lib.data import to_survival_y_records
+from hcve_lib.pipelines import TransformTarget
 from hcve_lib.transformers import MiceForest
-from hcve_lib.utils import remove_column_prefix, Callback
+from hcve_lib.utils import remove_column_prefix
 from hcve_lib.wrapped_sklearn import DFCoxnetSurvivalAnalysis, DFPipeline, DFColumnTransformer, DFSimpleImputer, \
-    DFOrdinalEncoder
+    DFOrdinalEncoder, DFStacking
 
 
-def get_pipelines():
+def get_pipelines() -> Dict[str, Type[MethodDefinition]]:
     return {
-        'coxnet': {
-            'get_estimator': lambda X, verbose=0: get_standard_pipeline(
-                DFCoxnetSurvivalAnalysis(fit_baseline_model=True, verbose=verbose),
-                X,
-            ),
-            'process_y': to_survival_y_records,
-            'optuna': coxnet_optuna,
-            'predict': predict_survival,
-        },
-        # 'coxnet_mice': {
-        #     'get_estimator': lambda X, verbose=0: DFPipeline(
-        #         [
-        #             *get_mice_imputer(X),
-        #             *get_encoder(X),
-        #             (
-        #                 'estimator',
-        #                 DFCoxnetSurvivalAnalysis(fit_baseline_model=True, verbose=verbose)
-        #             ),
-        #         ],
-        #         memory=CACHE_DIR,
-        #     ),
-        #     'process_y': to_survival_y_records,
-        #     'optuna': coxnet_optuna,
-        #     'predict': predict_survival,
-        # },
-        # 'gb_mice': {
-        #     'get_estimator': lambda X, verbose=0: DFPipeline(
-        #         [
-        #             *get_mice_imputer(X),
-        #             *get_encoder(X),
-        #             (
-        #                 'estimator',
-        #                 GradientBoostingSurvivalAnalysis(
-        #                     random_state=RANDOM_STATE, verbose=verbose
-        #                 ),
-        #             ),
-        #         ],
-        #         memory=CACHE_DIR,
-        #     ),
-        #     'process_y': to_survival_y_records,
-        #     'optuna': coxnet_optuna,
-        #     'predict': predict_survival,
-        # },
-        'gb': {
-            'get_estimator': lambda X, verbose=0: get_standard_pipeline(
-                GradientBoostingSurvivalAnalysis(random_state=RANDOM_STATE, verbose=verbose),
-                X,
-            ),
-            'process_y': to_survival_y_records,
-            'optuna': gb_optuna,
-            'predict': predict_survival,
-        },
-        'rsf': {
-            'get_estimator': lambda X, verbose=0:
-            get_standard_pipeline(RandomSurvivalForest(random_state=RANDOM_STATE), X),
-            'process_y': to_survival_y_records,
-            'optuna': rsf_optuna,
-            'predict': predict_survival,
-        },
-        'pycox': {
-            'get_estimator': lambda X, verbose=0: get_pycox_pipeline(X, verbose=verbose),
-            'process_y': to_survival_y_pair,
-            'predict': predict_nn,
-        }
+        'coxnet': CoxNet,
+        'gb': GB,
+        'rsf': RSF,
+        'stacking': Stacking,
+        # 'pycox': {
+        #     'get_estimator': lambda X, verbose=0: get_pycox_pipeline(X, verbose=verbose),
+        #     'process_y': to_survival_y_pair,
+        #     'predict': predict_nn,
+        # }
     }
 
 
-def get_standard_pipeline(estimator: Estimator, X: DataFrame) -> DFPipeline:
+class Stacking(MethodDefinition):
+
+    @staticmethod
+    def get_estimator(X: DataFrame, verbose=0, advanced_impute=False):
+        return get_standard_pipeline(
+            TransformTarget(
+                DFStacking(
+                    DecisionTreeRegressor(), [
+                        ('coxnet', DFCoxnetSurvivalAnalysis),
+                        ('gb', GradientBoostingSurvivalAnalysis)
+                    ]
+                ), to_survival_y_records
+            ),
+            X,
+            advanced_impute=advanced_impute,
+        )
+
+    @staticmethod
+    def optuna(trial: Trial) -> Tuple[Trial, Dict]:
+        hyperparameters = {
+            CROSS_VALIDATE_KEY: {
+                'missing_fraction': trial.suggest_uniform(
+                    f'{CROSS_VALIDATE_KEY}__missing_fraction', 0.1, 1
+                ),
+            },
+            'estimator__inner': {
+                'l1_ratio': 1 - trial.suggest_loguniform('estimator_n_alphas', 0.1, 1),
+            }
+        }
+        return trial, hyperparameters
+
+    process_y = to_survival_y_records
+    predict = predict_survival
+
+
+class CoxNet(MethodDefinition):
+
+    @staticmethod
+    def get_estimator(X: DataFrame, verbose=True, advanced_impute=False):
+        return get_standard_pipeline(
+            TransformTarget(
+                DFCoxnetSurvivalAnalysis(fit_baseline_model=True, verbose=verbose),
+                to_survival_y_records
+            ),
+            X,
+            advanced_impute=advanced_impute,
+        )
+
+    @staticmethod
+    def optuna(trial: Trial) -> Tuple[Trial, Dict]:
+        hyperparameters = {
+            CROSS_VALIDATE_KEY: {
+                'missing_fraction': trial.suggest_uniform(
+                    f'{CROSS_VALIDATE_KEY}__missing_fraction', 0.1, 1
+                ),
+            },
+            'estimator__inner': {
+                'l1_ratio': 1 - trial.suggest_loguniform('estimator_n_alphas', 0.1, 1),
+            }
+        }
+        return trial, hyperparameters
+
+    process_y = to_survival_y_records
+    predict = predict_survival
+
+
+class GB(MethodDefinition):
+
+    @staticmethod
+    def get_estimator(X: DataFrame, verbose=0, advanced_impute=False):
+        return get_standard_pipeline(
+            TransformTarget(
+                GradientBoostingSurvivalAnalysis(
+                    random_state=RANDOM_STATE,
+                    verbose=verbose,
+                ),
+                to_survival_y_records,
+            ),
+            X,
+        )
+
+    @staticmethod
+    def optuna(trial: Trial) -> Tuple[Trial, Dict]:
+        hyperparameters = {
+            CROSS_VALIDATE_KEY: {
+                'missing_fraction': trial.suggest_uniform(
+                    f'{CROSS_VALIDATE_KEY}_missing_fraction', 0.1, 1
+                ),
+            },
+            'estimator__inner': {
+                'learning_rate': trial.suggest_uniform('estimator_learning_rate', 0, 1),
+                'max_depth': trial.suggest_int('estimator_max_depth', 1, 10),
+                'n_estimators': trial.suggest_int('estimator_n_estimators', 5, 200),
+                'min_samples_split': trial.suggest_int('estimator_min_samples_split', 2, 30),
+                'min_samples_leaf': trial.suggest_int('estimator_min_samples_leaf', 1, 200),
+                'max_features': trial.suggest_categorical(
+                    'estimator_max_features', ['auto', 'sqrt', 'log2']
+                ),
+                'subsample': trial.suggest_uniform('estimator_subsample', 0.1, 1),
+            }
+        }
+        return trial, hyperparameters
+
+    process_y = to_survival_y_records
+    predict = predict_survival
+
+
+class RSF(MethodDefinition):
+
+    @staticmethod
+    def get_estimator(X: DataFrame, verbose=0, advanced_impute=False):
+        return get_standard_pipeline(
+            RandomSurvivalForest(random_state=RANDOM_STATE),
+            X,
+        )
+
+    @staticmethod
+    def optuna(trial: Trial) -> Tuple[Trial, Dict]:
+        hyperparameters = {
+            'estimator': {
+                'n_estimators': trial.suggest_int('estimator_n_estimators', 5, 200),
+                'max_depth': trial.suggest_int('estimator_max_depth', 1, 30),
+                'min_samples_split': trial.suggest_int('estimator_min_samples_split', 2, 30),
+                'min_samples_leaf': trial.suggest_int('estimator_min_samples_leaf', 1, 200),
+                'max_features': trial.suggest_categorical(
+                    'estimator_max_features', ['auto', 'sqrt', 'log2']
+                ),
+                'oob_score': trial.suggest_categorical('estimator_oob_score', [True, False]),
+            }
+        }
+        return trial, hyperparameters
+
+    process_y = to_survival_y_records
+    predict = predict_survival
+
+
+def get_standard_pipeline(
+    estimator: Estimator,
+    X: DataFrame,
+    advanced_impute: bool = False,
+) -> DFPipeline:
     return DFPipeline(
         [
-            *get_mice_imputer(X),
+            *(get_mice_imputer(X) if advanced_impute else get_basic_imputer(X)),
             *get_encoder(X),
             ('estimator', estimator),
         ],
@@ -137,7 +226,7 @@ def get_basic_imputer(X: DataFrame) -> List[Tuple]:
 
 
 def get_mice_imputer(_) -> List[Tuple]:
-    return ('imputer', MiceForest(random_state=5465132, iterations=5)),
+    return [('imputer', MiceForest(random_state=5465132, iterations=5))]
 
 
 def get_encoder(X: DataFrame) -> List[Tuple]:
@@ -163,7 +252,7 @@ def get_encoder(X: DataFrame) -> List[Tuple]:
     ]
 
 
-def categorize_features(X):
+def categorize_features(X: DataFrame) -> Tuple[List[str], List[str]]:
     categorical_features = [
         column_name for column_name in X.columns
         if X[column_name].dtype.name == 'object' or X[column_name].dtype.name == 'category'
@@ -174,59 +263,8 @@ def categorize_features(X):
     return categorical_features, continuous_features
 
 
-def gb_optuna(trial: Trial) -> Tuple[Trial, Dict]:
-    hyperparameters = {
-        '__cross_validate__': {
-            'missing_fraction': trial.suggest_uniform('__cross_validate__missing_fraction', 0.1, 1),
-        },
-        'estimator': {
-            'learning_rate': trial.suggest_uniform('estimator_learning_rate', 0, 1),
-            'max_depth': trial.suggest_int('estimator_max_depth', 1, 10),
-            'n_estimators': trial.suggest_int('estimator_n_estimators', 5, 200),
-            'min_samples_split': trial.suggest_int('estimator_min_samples_split', 2, 30),
-            'min_samples_leaf': trial.suggest_int('estimator_min_samples_leaf', 1, 200),
-            'max_features': trial.suggest_categorical(
-                'estimator_max_features', ['auto', 'sqrt', 'log2']
-            ),
-            'subsample': trial.suggest_uniform('estimator_subsample', 0.1, 1),
-        }
-    }
-    return trial, hyperparameters
-
-
-def coxnet_optuna(trial: Trial) -> Tuple[Trial, Dict]:
-    hyperparameters = {
-        '__cross_validate__': {
-            'missing_fraction': trial.suggest_uniform('__cross_validate__missing_fraction', 0.1, 1),
-        },
-        'estimator': {
-            'l1_ratio': 1 - trial.suggest_loguniform('estimator_n_alphas', 0.1, 1),
-        }
-    }
-    return trial, hyperparameters
-
-
-def rsf_optuna(trial: Trial) -> Tuple[Trial, Dict]:
-    hyperparameters = {
-        'estimator': {
-            'n_estimators': trial.suggest_int('estimator_n_estimators', 5, 200),
-            'max_depth': trial.suggest_int('estimator_max_depth', 1, 30),
-            'min_samples_split': trial.suggest_int('estimator_min_samples_split', 2, 30),
-            'min_samples_leaf': trial.suggest_int('estimator_min_samples_leaf', 1, 200),
-            'max_features': trial.suggest_categorical(
-                'estimator_max_features', ['auto', 'sqrt', 'log2']
-            ),
-            'oob_score': trial.suggest_categorical('estimator_oob_score', [True, False]),
-        }
-    }
-    return trial, hyperparameters
-
-
 def transform_X(input):
     return numpy.array(input).astype('float32')
-
-
-from torch import nn
 
 
 class NNWrapper(CoxPH):
