@@ -1,7 +1,6 @@
-from hcve_lib.data import to_survival_y_records, get_survival_y
-
-from deps.data import load_metadata, load_data_cached, get_homage_X, load_data
+from deps.data import load_metadata, get_homage_X, load_data
 from deps.memory import memory
+from hcve_lib.data import get_survival_y
 
 
 def get_variables():
@@ -15,6 +14,3 @@ def get_variables():
 
 
 get_variables_cached = memory.cache(get_variables)
-
-RANDOM_STATE = 502141521
-CACHE_DIR = '.project-cache'

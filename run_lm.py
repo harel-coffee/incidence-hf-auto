@@ -27,40 +27,47 @@ def run_lco(selected_methods: List[str]):
         result = run_prediction(
             cv,
             X,
-            current_method.process_y(y),
+            y,
             current_method.get_estimator,
             current_method.predict,
         )
-        metrics_group = transpose_dict(get_2_level_groups(result, data.groupby('STUDY'), data))
-        for test_fold_name, train_folds in metrics_group.items():
-            with start_run(
-                run_name=f'{method_name} {test_fold_name}', experiment_id=experiment.experiment_id
-            ):
-                for train_fold_name, fold in train_folds.items():
-                    if fold is None:
-                        continue
-                    set_tag('method_name', method_name)
-                    with start_run(
-                        run_name=f'train: {train_fold_name}',
-                        experiment_id=experiment.experiment_id,
-                        nested=True
-                    ):
-                        metrics = compute_metric_fold(
-                            [
-                                partial2(c_index, kwargs={
-                                    'X': X,
-                                    'y': y
-                                }),
-                                partial2(brier, kwargs={
-                                    'time_point': 365 * 3,
-                                    'X': X,
-                                    'y': y
-                                })
-                            ],
-                            fold,
-                        )
-                        log_metrics(metrics)
-                        log_pickled(fold, 'fold')
+        with start_run(run_name=f'{method_name}', experiment_id=experiment.experiment_id):
+            log_pickled(result, 'result')
+            set_tag('method_name', method_name)
+        # metrics_group = transpose_dict(get_2_level_groups(result, data.groupby('STUDY'), data))
+        # for test_fold_name, train_folds in metrics_group.items():
+        #     with start_run(
+        #         run_name=f'{method_name} {test_fold_name}', experiment_id=experiment.experiment_id
+        #     ):
+        #         for train_fold_name, fold in train_folds.items():
+        #             if fold is None:
+        #                 continue
+        #             set_tag('method_name', method_name)
+        #
+        #             metrics = [
+        #                 partial2(c_index, kwargs={
+        #                     'X': X,
+        #                     'y': y
+        #                 }),
+        #                 partial2(brier, kwargs={
+        #                     'time_point': 365 * 3,
+        #                     'X': X,
+        #                     'y': y
+        #                 })
+        #             ]
+        #
+        #             with start_run(
+        #                 run_name=f'train: {train_fold_name}',
+        #                 experiment_id=experiment.experiment_id,
+        #                 nested=True
+        #             ):
+        #                 metrics = compute_metric_fold(
+        #                     metrics,
+        #                     fold,
+        #                 )
+        #                 log_metrics(metrics)
+        #                 log_pickled(fold, 'fold')
+        #
 
 
 if __name__ == '__main__':

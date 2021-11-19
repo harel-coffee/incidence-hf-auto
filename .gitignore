@@ -14,3 +14,7 @@ data/
 
 .project-cache/
 /mlruns/
+
+dcm/
+
+dsm/

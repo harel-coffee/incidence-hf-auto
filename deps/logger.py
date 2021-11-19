@@ -1,4 +1,6 @@
 import logging
 
 logger = logging.getLogger('homage_fl')
-logger.addHandler(logging.StreamHandler())
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(logging.Formatter(fmt='[%(asctime)s]\n%(message)s', datefmt='%H:%M:%S'))
+logger.addHandler(stream_handler)

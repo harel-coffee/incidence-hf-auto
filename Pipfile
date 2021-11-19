@@ -28,6 +28,7 @@ torchtuples = "*"
 torch = "*"
 humanize = "*"
 pytz = "*"
+tensorflow = "*"
 
 [dev-packages]
 mlflow = "*"

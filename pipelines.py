@@ -5,21 +5,23 @@ import torchtuples as tt
 from optuna import Trial
 from pandas import DataFrame
 from pycox.models import CoxPH
+from sklearn.base import BaseEstimator
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 from sksurv.ensemble import GradientBoostingSurvivalAnalysis, RandomSurvivalForest
 from torch import nn
 
-from deps.common import RANDOM_STATE, CACHE_DIR
+from deps.constants import RANDOM_STATE, CACHE_DIR
 from deps.custom_types import MethodDefinition
+from dsm import DeepCoxMixtures
 from hcve_lib.custom_types import Estimator
-from hcve_lib.cv import predict_survival, CROSS_VALIDATE_KEY
+from hcve_lib.cv import predict_survival, CROSS_VALIDATE_KEY, predict_survival_dsm
 from hcve_lib.data import to_survival_y_records
 from hcve_lib.pipelines import TransformTarget
 from hcve_lib.transformers import MiceForest
 from hcve_lib.utils import remove_column_prefix
 from hcve_lib.wrapped_sklearn import DFCoxnetSurvivalAnalysis, DFPipeline, DFColumnTransformer, DFSimpleImputer, \
-    DFOrdinalEncoder, DFStacking
+    DFOrdinalEncoder, DFStacking, DFWrapped
 
 
 def get_pipelines() -> Dict[str, Type[MethodDefinition]]:
@@ -28,6 +30,8 @@ def get_pipelines() -> Dict[str, Type[MethodDefinition]]:
         'gb': GB,
         'rsf': RSF,
         'stacking': Stacking,
+        'gb_limited': GBLimited,
+        'dcm': DeepCoxMixtureMethod,
         # 'pycox': {
         #     'get_estimator': lambda X, verbose=0: get_pycox_pipeline(X, verbose=verbose),
         #     'process_y': to_survival_y_pair,
@@ -93,7 +97,8 @@ class CoxNet(MethodDefinition):
                 ),
             },
             'estimator__inner': {
-                'l1_ratio': 1 - trial.suggest_loguniform('estimator_n_alphas', 0.1, 1),
+                'l1_ratio': 1 - trial.suggest_loguniform('estimator_l1_ratio', 0.1, 1),
+                'alphas': [trial.suggest_loguniform('estimator_alphas', 10**-1, 10**3)]
             }
         }
         return trial, hyperparameters
@@ -143,6 +148,28 @@ class GB(MethodDefinition):
     predict = predict_survival
 
 
+class GBLimited(GB):
+
+    @staticmethod
+    def optuna(trial: Trial) -> Tuple[Trial, Dict]:
+        hyperparameters = {
+            CROSS_VALIDATE_KEY: {
+                'missing_fraction': trial.suggest_uniform(
+                    f'{CROSS_VALIDATE_KEY}_missing_fraction', 0.1, 1
+                ),
+            },
+            'estimator__inner': {
+                'learning_rate': trial.suggest_uniform('estimator_learning_rate', 0, 1),
+                'min_samples_leaf': trial.suggest_int('estimator_min_samples_leaf', 1, 200),
+                'max_features': trial.suggest_categorical(
+                    'estimator_max_features', ['auto', 'sqrt', 'log2']
+                ),
+                'subsample': trial.suggest_uniform('estimator_subsample', 0.1, 1),
+            }
+        }
+        return trial, hyperparameters
+
+
 class RSF(MethodDefinition):
 
     @staticmethod
@@ -183,7 +210,7 @@ def get_standard_pipeline(
             *get_encoder(X),
             ('estimator', estimator),
         ],
-        memory=CACHE_DIR,
+        # memory=CACHE_DIR,
     )
 
 
@@ -302,5 +329,55 @@ def get_pycox_pipeline(X: DataFrame, verbose: int = 0):
             ('to_numpy', FunctionTransformer(transform_X)),
             ('estimator', NNWrapper()),
         ],
-        memory=CACHE_DIR
+        # memory=CACHE_DIR
     )
+
+
+class DeepCoxMixtureAdapter(DFWrapped, BaseEstimator, DeepCoxMixtures):
+    model = None
+
+    def fit(self, X, y, **kwargs):
+        self.fitted_feature_names = self.get_fitted_feature_names(X)
+        t = y['data']['tte'].to_numpy().astype('float32')
+        e = y['data']['label'].to_numpy()
+        super(DFWrapped, self).fit(X.to_numpy(), t, e, iters=50)
+        return self
+
+    def predict(self, X):
+        return 1 - super().predict_survival(X.to_numpy(), 1 * 365)
+
+    def predict_survival(self, X, t):
+        super().predict_survival(X.to_numpy(), t)
+
+    def predict_survival_function(self, X):
+        for x in X:
+            yield lambda t: self.predict_survival(x, t)
+
+
+class DeepCoxMixtureMethod(MethodDefinition):
+
+    @staticmethod
+    def get_estimator(X: DataFrame, verbose=True, advanced_impute=False):
+        return get_standard_pipeline(
+            DeepCoxMixtureAdapter(),
+            X,
+            advanced_impute=advanced_impute,
+        )
+
+    @staticmethod
+    def optuna(trial: Trial) -> Tuple[Trial, Dict]:
+        hyperparameters = {
+            CROSS_VALIDATE_KEY: {
+                'missing_fraction': trial.suggest_uniform(
+                    f'{CROSS_VALIDATE_KEY}__missing_fraction', 0.1, 1
+                ),
+            },
+            'estimator': {
+                'k': trial.suggest_int('estimator_k', 1, 5),
+                'layers': [trial.suggest_int('layers_k', 3, 100)],
+            }
+        }
+        return trial, hyperparameters
+
+    process_y = to_survival_y_records
+    predict = predict_survival_dsm

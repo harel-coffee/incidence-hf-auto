@@ -3,11 +3,12 @@ import yaml
 from pandas import read_csv, DataFrame
 
 from config import DATA_MAIN_PATH, DATA_FLEMENGHO_PATH
-from deps.logger import logger
 from deps.memory import memory
+from deps.logger import logger
 from hcve_lib.data import get_feature_subset, \
     sanitize_data_inplace, get_variable_identifier, Metadata, get_X
 from hcve_lib.formatting import format_number
+from hcve_lib.functional import t, statements
 from hcve_lib.preprocessing import Step
 from hcve_lib.preprocessing import perform, log_step, remove_cohorts
 
@@ -27,6 +28,13 @@ def load_data(metadata: Metadata) -> DataFrame:
             Step(
                 action=lambda _: load_all_data(),
                 log=log_step('Raw data', metadata),
+            ),
+            Step(
+                action=lambda current: statements(
+                    to_drop := current[current['STUDY'] == 'HULL_LIFELAB'],
+                    current.drop(to_drop.index)
+                ),
+                log=log_step('Dropping HULL LIFE LAB cohort', metadata),
             ),
             Step(
                 action=lambda current: current[current['VISIT'] == 'BASELINE'],
@@ -79,11 +87,17 @@ def load_data(metadata: Metadata) -> DataFrame:
                     f'\tn individuals={format_number(len(current))}\n'
                     f'\tn cohorts={len(current["STUDY_NUM"].unique())}\n'
                 ),
+            ),
+            Step(
+                action=auto_convert_category,
+                log=lambda logger, current, past: logger.info(
+                    'Convert before:\n' + str(past.dtypes.map(str).value_counts()) + "Now:\n " +
+                    str(current.dtypes.map(str).value_counts())
+                )
             )
         ],
         logger=logger
     )
-
     missing_or_irrelevant = [
         'PACKYEARS', 'NYHA', 'HAP', 'HMI', 'HIHD', 'HCABG', 'HPTCA', 'HHF', 'HSTROKE', 'HTIA',
         'HVALVE', 'HCV_OTHER', 'HYPERCHOL', 'DEPRESSION', 'TRT_STAT', 'TRT_FIB', 'TRT_ANTIPLT',
@@ -95,6 +109,14 @@ def load_data(metadata: Metadata) -> DataFrame:
     data.drop(['DBIRTH', 'DVISIT', *missing_or_irrelevant], axis=1, inplace=True)
 
     return data
+
+
+def auto_convert_category(data: DataFrame) -> DataFrame:
+    data_new = data.copy()
+    for column in data_new.columns:
+        if len(data_new[column].unique()) < 10:
+            data_new.loc[:, column] = data_new[column].astype('category')
+    return data_new
 
 
 load_data_cached = memory.cache(load_data)

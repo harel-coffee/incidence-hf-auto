@@ -1,3 +1,5 @@
 from joblib import Memory
 
-memory = Memory('.project_cache')
+from deps.constants import CACHE_DIR
+
+memory = Memory(CACHE_DIR)
