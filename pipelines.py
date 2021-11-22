@@ -6,6 +6,7 @@ from optuna import Trial
 from pandas import DataFrame
 from pycox.models import CoxPH
 from sklearn.base import BaseEstimator
+from sklearn.ensemble._hist_gradient_boosting.binning import _BinMapper
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 from sksurv.ensemble import GradientBoostingSurvivalAnalysis, RandomSurvivalForest
@@ -17,11 +18,11 @@ from dsm import DeepCoxMixtures
 from hcve_lib.custom_types import Estimator
 from hcve_lib.cv import predict_survival, CROSS_VALIDATE_KEY, predict_survival_dsm
 from hcve_lib.data import to_survival_y_records
-from hcve_lib.pipelines import TransformTarget
+from hcve_lib.pipelines import TransformTarget, Callback
 from hcve_lib.transformers import MiceForest
 from hcve_lib.utils import remove_column_prefix
 from hcve_lib.wrapped_sklearn import DFCoxnetSurvivalAnalysis, DFPipeline, DFColumnTransformer, DFSimpleImputer, \
-    DFOrdinalEncoder, DFStacking, DFWrapped
+    DFOrdinalEncoder, DFStacking, DFWrapped, DFBinMapper
 
 
 def get_pipelines() -> Dict[str, Type[MethodDefinition]]:
@@ -44,7 +45,7 @@ class Stacking(MethodDefinition):
 
     @staticmethod
     def get_estimator(X: DataFrame, verbose=0, advanced_impute=False):
-        return get_standard_pipeline(
+        return get_standard_steps(
             TransformTarget(
                 DFStacking(
                     DecisionTreeRegressor(), [
@@ -79,7 +80,7 @@ class CoxNet(MethodDefinition):
 
     @staticmethod
     def get_estimator(X: DataFrame, verbose=True, advanced_impute=False):
-        return get_standard_pipeline(
+        return get_standard_steps(
             TransformTarget(
                 DFCoxnetSurvivalAnalysis(fit_baseline_model=True, verbose=verbose),
                 to_survival_y_records
@@ -111,7 +112,7 @@ class GB(MethodDefinition):
 
     @staticmethod
     def get_estimator(X: DataFrame, verbose=0, advanced_impute=False):
-        return get_standard_pipeline(
+        return get_standard_steps(
             TransformTarget(
                 GradientBoostingSurvivalAnalysis(
                     random_state=RANDOM_STATE,
@@ -148,6 +149,27 @@ class GB(MethodDefinition):
     predict = predict_survival
 
 
+class GBHist(GB):
+
+    @staticmethod
+    def get_estimator(X: DataFrame, verbose=0, advanced_impute=False, n_bins: int = 50):
+        return DFPipeline(
+            [
+                ('binning', DFBinMapper(n_bins=n_bins)),
+                *get_standard_steps(
+                    TransformTarget(
+                        GradientBoostingSurvivalAnalysis(
+                            random_state=RANDOM_STATE,
+                            verbose=verbose,
+                        ),
+                        to_survival_y_records,
+                    ),
+                    X,
+                ),
+            ]
+        )
+
+
 class GBLimited(GB):
 
     @staticmethod
@@ -174,7 +196,7 @@ class RSF(MethodDefinition):
 
     @staticmethod
     def get_estimator(X: DataFrame, verbose=0, advanced_impute=False):
-        return get_standard_pipeline(
+        return get_standard_steps(
             RandomSurvivalForest(random_state=RANDOM_STATE),
             X,
         )
@@ -199,19 +221,16 @@ class RSF(MethodDefinition):
     predict = predict_survival
 
 
-def get_standard_pipeline(
+def get_standard_steps(
     estimator: Estimator,
     X: DataFrame,
     advanced_impute: bool = False,
-) -> DFPipeline:
-    return DFPipeline(
-        [
-            *(get_mice_imputer(X) if advanced_impute else get_basic_imputer(X)),
-            *get_encoder(X),
-            ('estimator', estimator),
-        ],
-        # memory=CACHE_DIR,
-    )
+) -> List:
+    return [
+        *(get_mice_imputer(X) if advanced_impute else get_basic_imputer(X)),
+        *get_encoder(X),
+        ('estimator', estimator),
+    ]
 
 
 def get_preprocessing(X: DataFrame) -> Tuple:
@@ -336,11 +355,28 @@ def get_pycox_pipeline(X: DataFrame, verbose: int = 0):
 class DeepCoxMixtureAdapter(DFWrapped, BaseEstimator, DeepCoxMixtures):
     model = None
 
+    def __init__(
+        self, k=3, layers=None, learning_rate=None, batch_size=None, optimizer=None, iters=50
+    ):
+        super().__init__(k, layers)
+        self.learning_rate = learning_rate
+        self.batch_size = batch_size
+        self.optimizer = optimizer
+        self.iters = iters
+
     def fit(self, X, y, **kwargs):
         self.fitted_feature_names = self.get_fitted_feature_names(X)
         t = y['data']['tte'].to_numpy().astype('float32')
         e = y['data']['label'].to_numpy()
-        super(DFWrapped, self).fit(X.to_numpy(), t, e, iters=50)
+
+        additional_kwargs = {
+            **kwargs,
+            'learning_rate': self.learning_rate,
+            'batch_size': self.batch_size,
+            'optimizer': self.optimizer,
+            'iters': self.iters,
+        }
+        super(DFWrapped, self).fit(X.to_numpy(), t, e, **additional_kwargs)
         return self
 
     def predict(self, X):
@@ -358,7 +394,7 @@ class DeepCoxMixtureMethod(MethodDefinition):
 
     @staticmethod
     def get_estimator(X: DataFrame, verbose=True, advanced_impute=False):
-        return get_standard_pipeline(
+        return get_standard_steps(
             DeepCoxMixtureAdapter(),
             X,
             advanced_impute=advanced_impute,
@@ -375,9 +411,84 @@ class DeepCoxMixtureMethod(MethodDefinition):
             'estimator': {
                 'k': trial.suggest_int('estimator_k', 1, 5),
                 'layers': [trial.suggest_int('layers_k', 3, 100)],
+                'learning_rate': trial.suggest_loguniform('estimator_learning_rate', 0.0001, 1),
+                'batch_size': trial.suggest_int('estimator_batch_size', 1, 100),
+                'optimizer': trial.suggest_categorical(
+                    'estimator_optimizer', ('Adam', 'RMSProp', 'SGD')
+                )
             }
         }
         return trial, hyperparameters
 
     process_y = to_survival_y_records
     predict = predict_survival_dsm
+
+
+LCO_GB_HYPERPARAMETERS = {
+    'PROSPER': {
+        'estimator__inner': {
+            'learning_rate': 0.30944525538959256,
+            'max_depth': 8,
+            'n_estimators': 135,
+            'min_samples_split': 17,
+            'min_samples_leaf': 85,
+            'max_features': 'auto',
+            'subsample': 0.8562561477434878
+        }
+    },
+    'PREDICTOR': {
+        'estimator__inner': {
+            'learning_rate': 0.6707117303939213,
+            'max_depth': 7,
+            'n_estimators': 155,
+            'min_samples_split': 14,
+            'min_samples_leaf': 131,
+            'max_features': 'log2',
+            'subsample': 0.3933553421418345
+        }
+    },
+    'HVC': {
+        'estimator__inner': {
+            'learning_rate': 0.9892210928154446,
+            'max_depth': 7,
+            'n_estimators': 49,
+            'min_samples_split': 3,
+            'min_samples_leaf': 103,
+            'max_features': 'log2',
+            'subsample': 0.13427386116113538
+        }
+    },
+    'HEALTHABC': {
+        'estimator__inner': {
+            'learning_rate': 0.869134661511128,
+            'max_depth': 3,
+            'n_estimators': 194,
+            'min_samples_split': 10,
+            'min_samples_leaf': 192,
+            'max_features': 'sqrt',
+            'subsample': 0.8228469462266893
+        }
+    },
+    'FLEMENGHO': {
+        'estimator__inner': {
+            'learning_rate': 0.5466796529740378,
+            'max_depth': 7,
+            'n_estimators': 185,
+            'min_samples_split': 26,
+            'min_samples_leaf': 96,
+            'max_features': 'sqrt',
+            'subsample': 0.9991143175593463
+        }
+    },
+    'ASCOT': {
+        'estimator__inner': {
+            'learning_rate': 0.42720126728965413,
+            'max_depth': 10,
+            'n_estimators': 129,
+            'min_samples_split': 4,
+            'min_samples_leaf': 186,
+            'max_features': 'log2',
+            'subsample': 0.3464104097831221
+        }
+    }
+}
