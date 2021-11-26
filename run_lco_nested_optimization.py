@@ -13,18 +13,17 @@ from deps.common import get_variables_cached
 from deps.custom_types import MethodDefinition
 from deps.logger import logger
 from hcve_lib.custom_types import Target, FoldPrediction
-from hcve_lib.cv import cross_validate, filter_missing_features, OptimizeEstimator, evaluate_optimize_splits, \
-    train_test_proportion
+from hcve_lib.cv import cross_validate, filter_missing_features, OptimizeEstimator, evaluate_optimize_splits
 from hcve_lib.cv import get_lco_splits
 from hcve_lib.evaluation_functions import c_index, compute_metrics_folds
 from hcve_lib.optimization import optuna_report_mlflow, EarlyStoppingCallback
-from hcve_lib.utils import partial2
+from hcve_lib.utils import partial2_args, partial2
 from pipelines import get_pipelines
 
 study = optuna.create_study(direction="maximize")
 
 
-def run(methods: List[str]) -> None:
+def run(methods: List[str], n_jobs: int) -> None:
     data, metadata, X, y = get_variables_cached()
     logger.setLevel(INFO)
     logger.info('Data loaded')
@@ -41,18 +40,18 @@ def run(methods: List[str]) -> None:
             result: Dict[Hashable, FoldPrediction] = cross_validate(
                 X,
                 y,
-                lambda _: get_inner_optimize(data, method_definition=method_definition),
+                partial(get_inner, data=data, method_definition=method_definition, n_jobs=n_jobs),
                 method_definition.predict,
                 cv,
                 train_test_filter_callback=filter_missing_features,
-                n_jobs=-1,
+                n_jobs=n_jobs,
                 mlflow_track=True,
             )
 
             report_final(X, y, result, experiment.experiment_id)
 
 
-def get_inner_optimize(data: DataFrame, method_definition: MethodDefinition):
+def get_inner(_, data: DataFrame, method_definition: MethodDefinition, n_jobs: int):
     return OptimizeEstimator(
         method_definition.get_estimator,
         method_definition.predict,
@@ -60,11 +59,10 @@ def get_inner_optimize(data: DataFrame, method_definition: MethodDefinition):
         objective_evaluate=partial(
             evaluate_optimize_splits,
             predict_callback=method_definition.predict,
-            get_cv=train_test_proportion,
+            get_cv=partial2(get_lco_splits, data=data),
         ),
-        get_cv=partial(get_lco_cv, data=data),
         optimize_params={
-            'n_jobs': -1,
+            'n_jobs': n_jobs,
             'n_trials': 50,
         },
         optimize_callbacks=[
@@ -75,7 +73,7 @@ def get_inner_optimize(data: DataFrame, method_definition: MethodDefinition):
                 stop_callback=log_early_stopping,
             )
         ],
-        catch_exceptions=True,
+        catch_exceptions=False,
         logger=logger,
     )
 
@@ -86,11 +84,11 @@ def report_final(
     metrics_folds = compute_metrics_folds(
         result,
         [
-            partial2(c_index, kwargs={
+            partial2_args(c_index, kwargs={
                 'X': X,
                 'y': y
             }),
-            partial2(
+            partial2_args(
                 brier,
                 kwargs={
                     'X': X,
@@ -106,11 +104,6 @@ def report_final(
             log_metrics(fold_metrics)
 
 
-def get_lco_cv(X, y, data):
-    splits = get_lco_splits(X, y, data)
-    return splits
-
-
 def log_early_stopping(it):
     logger.info(f'Early stopping after {it} iterations')
 
@@ -118,5 +111,6 @@ def log_early_stopping(it):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('methods', metavar='METHOD', type=str, nargs='+')
+    parser.add_argument('--n_jobs', type=int, default=-1)
     args = parser.parse_args()
     run(**vars(args))

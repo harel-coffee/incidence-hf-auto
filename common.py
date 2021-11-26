@@ -1,6 +1,7 @@
 from numbers import Rational
 
 import numpy
+from mlflow import set_tag
 from pandas import DataFrame
 from sksurv.metrics import brier_score
 
@@ -8,7 +9,7 @@ from hcve_lib.custom_types import FoldPrediction, Target, SplitInput
 from hcve_lib.data import to_survival_y_records
 from hcve_lib.evaluation_functions import compute_metrics_ci, c_index
 from hcve_lib.tracking import log_pickled, log_metrics_ci
-from hcve_lib.utils import partial2, split_data
+from hcve_lib.utils import partial2_args, split_data
 
 
 def brier(fold: FoldPrediction, X: DataFrame, y: Target, time_point: Rational) -> float:
@@ -43,15 +44,19 @@ def brier_y_score(fold: FoldPrediction, X: DataFrame, y: Target, time_point: Rat
     )[1][0]
 
 
-def log_result(X, y, current_method, result):
-    brier_3_years = partial2(brier, kwargs={'time_point': 3 * 365, 'X': X, 'y': y})
-    c_index_ = partial2(c_index, kwargs={'X': X, 'y': y})
+def log_result(X, y, current_method, method_name, result):
+    set_tag('method_name', method_name)
+    brier_3_years = partial2_args(
+        brier, name='brier_3_years', kwargs={
+            'time_point': 3 * 365,
+            'X': X,
+            'y': y
+        }
+    )
+    c_index_ = partial2_args(c_index, kwargs={'X': X, 'y': y})
     metrics_ci = compute_metrics_ci(
         result,
-        [
-            c_index_,
-            # brier_3_years
-        ],
+        [c_index_, brier_3_years],
     )
     log_pickled(str(current_method.get_estimator(X)), 'pipeline.txt')
     log_pickled(result, 'result')

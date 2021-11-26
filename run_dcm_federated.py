@@ -3,8 +3,8 @@ from mlflow import set_tracking_uri, start_run, get_experiment_by_name
 from common import brier_y_score
 from deps.common import get_variables_cached
 from deps.logger import logger
-from hcve_lib.cv import cross_validate, get_lco_splits
-from hcve_lib.evaluation_functions import compute_metrics_folds, c_index_inverse_score
+from hcve_lib.cv import cross_validate, get_lco_splits, get_reproduce_split
+from hcve_lib.evaluation_functions import compute_metrics_folds, c_index_inverse_score, c_index
 from hcve_lib.utils import partial2_args
 from pipelines import DeepCoxMixtureMethod
 
@@ -14,14 +14,9 @@ k = 1
 h = 20
 
 set_tracking_uri('http://localhost:5000')
-experiment = get_experiment_by_name('reproduce')
+experiment = get_experiment_by_name('federated')
 with start_run(run_name='dcm', experiment_id=experiment.experiment_id):
-    # splits = train_test_filter(
-    #     data,
-    #     train_filter=lambda _data: _data['STUDY'].isin(['HEALTHABC', 'PREDICTOR', 'PROSPER']),
-    #     test_filter=lambda _data: _data['STUDY'] == 'ASCOT'
-    # )
-    splits = get_lco_splits(X, y, data)
+    splits = get_reproduce_split(X, y, data)
 
     result = cross_validate(
         X,
@@ -29,11 +24,18 @@ with start_run(run_name='dcm', experiment_id=experiment.experiment_id):
         DeepCoxMixtureMethod.get_estimator,
         DeepCoxMixtureMethod.predict,
         splits,
-        n_jobs=-1,
+        n_jobs=1,
         logger=logger,
+        split_hyperparameters={'train_test_filter': {
+            'estimator': {
+                'k': 4,
+                'layers': [42]
+            }
+        }},
     )
+
     # log_result(X, y, DeepCoxMixtureMethod, result)
-    c_index_ = partial2_args(c_index_inverse_score, kwargs={'X': X, 'y': y})
+    c_index_ = partial2_args(c_index, kwargs={'X': X, 'y': y})
     brier_3_years = partial2_args(brier_y_score, kwargs={'time_point': 3 * 365, 'X': X, 'y': y})
     metrics_ci = compute_metrics_folds(
         result,

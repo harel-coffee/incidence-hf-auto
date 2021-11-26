@@ -1,4 +1,4 @@
-import argparse
+\import argparse
 from functools import partial
 from typing import List
 
@@ -9,10 +9,10 @@ from deps.common import get_variables
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
 from deps.prediction import run_prediction
-from hcve_lib.cv import lm_cv
-from hcve_lib.evaluation_functions import c_index, get_2_level_groups, compute_metric_fold
+from hcve_lib.cv import get_lm_splits
+from hcve_lib.evaluation_functions import c_index, get_2_level_groups, compute_metrics_fold
 from hcve_lib.tracking import log_pickled
-from hcve_lib.utils import transpose_dict, partial2
+from hcve_lib.utils import transpose_dict, partial2_args
 from pipelines import get_pipelines
 
 
@@ -20,7 +20,7 @@ def run_lco(selected_methods: List[str]):
     set_tracking_uri('http://localhost:5000')
     experiment = get_experiment_by_name('lm')
     data, metadata, X, y = get_variables()
-    cv = lm_cv(data.groupby('STUDY'))
+    cv = get_lm_splits(data.groupby('STUDY'))
 
     for method_name in selected_methods:
         current_method = get_pipelines()[method_name]
@@ -45,11 +45,11 @@ def run_lco(selected_methods: List[str]):
         #             set_tag('method_name', method_name)
         #
         #             metrics = [
-        #                 partial2(c_index, kwargs={
+        #                 partial2_args(c_index, kwargs={
         #                     'X': X,
         #                     'y': y
         #                 }),
-        #                 partial2(brier, kwargs={
+        #                 partial2_args(brier, kwargs={
         #                     'time_point': 365 * 3,
         #                     'X': X,
         #                     'y': y
@@ -61,7 +61,7 @@ def run_lco(selected_methods: List[str]):
         #                 experiment_id=experiment.experiment_id,
         #                 nested=True
         #             ):
-        #                 metrics = compute_metric_fold(
+        #                 metrics = compute_metrics_fold(
         #                     metrics,
         #                     fold,
         #                 )
