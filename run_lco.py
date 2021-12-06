@@ -1,15 +1,16 @@
 import argparse
 from typing import List
 
-from mlflow import get_experiment_by_name, start_run, log_metrics, set_tracking_uri, set_tag
+from mlflow import get_experiment_by_name, start_run, log_metrics, set_tracking_uri
 
 from common import log_result
 from deps.common import get_variables_cached
 from deps.logger import logger
-from hcve_lib.cv import get_lco_splits, cross_validate
+from hcve_lib.cv import cross_validate
+from hcve_lib.splitting import get_lco_splits
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
-from pipelines import get_pipelines
+from deps.pipelines import get_pipelines
 from utils import compute_standard_metrics
 
 

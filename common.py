@@ -5,20 +5,21 @@ from mlflow import set_tag
 from pandas import DataFrame
 from sksurv.metrics import brier_score
 
-from hcve_lib.custom_types import FoldPrediction, Target, SplitInput
+from hcve_lib.custom_types import SplitPrediction, Target, SplitInput
 from hcve_lib.data import to_survival_y_records
 from hcve_lib.evaluation_functions import compute_metrics_ci, c_index
 from hcve_lib.tracking import log_pickled, log_metrics_ci
 from hcve_lib.utils import partial2_args, split_data
 
 
-def brier(fold: FoldPrediction, X: DataFrame, y: Target, time_point: Rational) -> float:
-    X_train, y_train, X_test, y_test = split_data(X, y, fold)
+def brier(fold: SplitPrediction, X: DataFrame, y: Target, time_point: Rational) -> float:
+    X_train, y_train, X_test, y_test = split_data(X, y, fold, remove_extended=True)
 
     if not isinstance(y_test, numpy.recarray):
-        y_test = {**y_test, 'data': to_survival_y_records(y_test)}
+        y_test = {**y_test, 'data': to_survival_y_records(y_test['data'])}
+
     if not isinstance(y_train, numpy.recarray):
-        y_train = {**y_train, 'data': to_survival_y_records(y_train)}
+        y_train = {**y_train, 'data': to_survival_y_records(y_train['data'])}
 
     return brier_score(
             y_train['data'],
@@ -29,12 +30,12 @@ def brier(fold: FoldPrediction, X: DataFrame, y: Target, time_point: Rational) -
         )[1][0]
 
 
-def brier_y_score(fold: FoldPrediction, X: DataFrame, y: Target, time_point: Rational) -> float:
+def brier_y_score(fold: SplitPrediction, X: DataFrame, y: Target, time_point: Rational) -> float:
     X_train, y_train, X_test, y_test = split_data(X, y, fold)
     if not isinstance(y_test, numpy.recarray):
-        y_test = {**y_test, 'data': to_survival_y_records(y_test)}
+        y_test = {**y_test, 'data': to_survival_y_records(y_test['data'])}
     if not isinstance(y_train, numpy.recarray):
-        y_train = {**y_train, 'data': to_survival_y_records(y_train)}
+        y_train = {**y_train, 'data': to_survival_y_records(y_train['data'])}
 
     return brier_score(
         y_train['data'],
@@ -45,7 +46,8 @@ def brier_y_score(fold: FoldPrediction, X: DataFrame, y: Target, time_point: Rat
 
 
 def log_result(X, y, current_method, method_name, result):
-    set_tag('method_name', method_name)
+    log_info(X, current_method, method_name, result)
+
     brier_3_years = partial2_args(
         brier, name='brier_3_years', kwargs={
             'time_point': 3 * 365,
@@ -58,6 +60,10 @@ def log_result(X, y, current_method, method_name, result):
         result,
         [c_index_, brier_3_years],
     )
+    log_metrics_ci(metrics_ci, drop_ci=True)
+
+
+def log_info(X, current_method, method_name, result):
+    set_tag('method_name', method_name)
     log_pickled(str(current_method.get_estimator(X)), 'pipeline.txt')
     log_pickled(result, 'result')
-    log_metrics_ci(metrics_ci)

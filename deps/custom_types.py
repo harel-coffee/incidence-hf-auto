@@ -4,15 +4,10 @@ from typing import Tuple, Dict, Any
 from optuna import Trial
 from pandas import DataFrame
 
-from hcve_lib.custom_types import Target, Estimator
+from hcve_lib.custom_types import Target, Estimator, SplitInput
 
 
-class MethodDefinition(ABC):
-
-    @staticmethod
-    @abstractmethod
-    def process_y(y: DataFrame) -> Any:
-        ...
+class Method(ABC):
 
     @staticmethod
     @abstractmethod
@@ -27,10 +22,9 @@ class MethodDefinition(ABC):
     @staticmethod
     @abstractmethod
     def predict(
-        X_train: DataFrame,
-        y_train: DataFrame,
-        X_test: DataFrame,
-        y_true: Target,
+        X: DataFrame,
+        y: Target,
+        split: SplitInput,
         model: Estimator,
     ):
         ...

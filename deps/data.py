@@ -163,3 +163,7 @@ def load_metadata():
     with open("./metadata.yaml", 'r') as stream:
         metadata = yaml.safe_load(stream)
     return metadata
+
+
+def group_by_study(X, data):
+    return X.groupby(data['STUDY'])

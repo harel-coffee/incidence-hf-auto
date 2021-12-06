@@ -1,57 +1,84 @@
 import argparse
 import logging
-from typing import List
+from functools import partial
+from typing import List, Hashable, Dict, Callable
 
-from mlflow import get_experiment_by_name, start_run, log_metrics, set_tracking_uri
+from mlflow import start_run, set_tracking_uri, set_tag, set_experiment
+from pandas import DataFrame
 
 from common import log_result
 from deps.common import get_variables_cached
-from deps.logger import logger
-from hcve_lib.cv import cross_validate, get_splitter
 # noinspection PyUnresolvedReferences
-from deps.ignore_warnings import *
-from hcve_lib.tracking import encode_run_name
-from pipelines import get_pipelines
-from utils import compute_standard_metrics
+from deps.custom_types import Method
+from deps.logger import logger
+from deps.tracking import log_splits_as_subruns
+from hcve_lib.custom_types import Target, SplitPrediction
+from hcve_lib.cv import cross_validate, execute_per_group
+from hcve_lib.evaluation_functions import compute_metrics_ci
+from hcve_lib.splitting import get_splitter
+from deps.pipelines import get_pipelines
+from utils import compute_standard_metrics, get_standard_metrics
 
 
-def run_lco(selected_methods: List[str], splitter_name: str):
+def run(
+    selected_methods: List[str], splitter_name: str, remove_cohorts: List[str], group_by: str,
+    n_jobs: int
+) -> None:
     set_tracking_uri('http://localhost:5000')
-    experiment = get_experiment_by_name(splitter_name)
-    data, metadata, X, y = get_variables_cached()
-    splits = get_splitter(splitter_name)(X, y, data)
-
+    logger.setLevel(logging.INFO)
+    set_experiment(splitter_name + '_default')
+    data, metadata, X, y = get_variables_cached(remove_cohorts)
+    get_splits = get_splitter(splitter_name)
     for method_name in selected_methods:
-        with start_run(run_name=method_name, experiment_id=experiment.experiment_id):
-            current_method = get_pipelines()[method_name]
-            logger.setLevel(logging.INFO)
+        with start_run(run_name=method_name):
+            set_tag('removed_cohorts', remove_cohorts)
+            method = get_pipelines()[method_name]
+            if group_by:
+                results_per_group = execute_per_group(
+                    partial(execute_group, get_splits=get_splits, method=method),
+                    X.groupby(data[group_by]),
+                    y,
+                    n_jobs,
+                )
+                metrics_per_group = {
+                    name: compute_metrics_ci(result, get_standard_metrics(X, y))
+                    for name, result in results_per_group.items()
+                }
+                log_splits_as_subruns(metrics_per_group)
+            else:
+                result = cross_validate(
+                    X,
+                    y,
+                    method.get_estimator,
+                    method.predict,
+                    get_splits(X=X, y=y, data=data),
+                    n_jobs=-1,
+                    logger=logger,
+                )
+                log_result(X, y, method, method_name, result)
+                metrics_splits = compute_standard_metrics(X, y, result)
+                log_splits_as_subruns(metrics_splits)
 
-            result = cross_validate(
-                X,
-                y,
-                current_method.get_estimator,
-                current_method.predict,
-                splits,
-                n_jobs=-1,
-                logger=logger,
-            )
 
-            log_result(X, y, current_method, method_name, result)
-
-            metrics_folds = compute_standard_metrics(X, y, result)
-
-            for fold_name, fold_metrics in metrics_folds.items():
-                with start_run(
-                    run_name=encode_run_name(fold_name),
-                    nested=True,
-                    experiment_id=experiment.experiment_id
-                ):
-                    log_metrics(fold_metrics)
+def execute_group(_: str, X: DataFrame, y: Target, get_splits: Callable,
+                  method: Method) -> Dict[Hashable, SplitPrediction]:
+    return cross_validate(
+        X,
+        y,
+        method.get_estimator,
+        method.predict,
+        get_splits(X=X, y=y),
+        n_jobs=1,
+        logger=logger,
+    )
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('selected_methods', metavar='METHOD', type=str, nargs='+')
     parser.add_argument('--splits', dest='splitter_name')
+    parser.add_argument('--remove-cohorts', type=str, default=tuple(), nargs="*")
+    parser.add_argument('--n-jobs', type=int, default=-1)
+    parser.add_argument('--group-by', type=str, nargs='?')
     args = parser.parse_args()
-    run_lco(**vars(args))
+    run(**vars(args))

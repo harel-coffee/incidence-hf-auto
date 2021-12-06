@@ -8,8 +8,9 @@ from pandas import DataFrame
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
 from deps.logger import logger
-from hcve_lib.custom_types import FoldPrediction, Target, SplitInput
-from hcve_lib.cv import cross_validate, filter_missing_features
+from hcve_lib.custom_types import SplitPrediction, Target, SplitInput
+from hcve_lib.cv import cross_validate
+from hcve_lib.splitting import filter_missing_features
 
 
 def run_prediction(
@@ -19,7 +20,7 @@ def run_prediction(
     get_pipeline: Callable,
     predict: Callable,
     n_jobs=-1,
-) -> Dict[Hashable, FoldPrediction]:
+) -> Dict[Hashable, SplitPrediction]:
 
     return cross_validate(
         X,

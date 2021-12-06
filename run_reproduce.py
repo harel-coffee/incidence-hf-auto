@@ -4,12 +4,12 @@ from typing import List
 from mlflow import get_experiment_by_name, start_run, set_tracking_uri, set_tag
 
 from common import log_result
-from deps.common import get_variables, get_variables_cached
-from hcve_lib.cv import train_test_filter
+from deps.common import get_variables_cached
+from hcve_lib.splitting import train_test_filter
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
 from deps.prediction import run_prediction
-from pipelines import get_pipelines
+from deps.pipelines import get_pipelines
 
 
 def run_lco(selected_methods: List[str]):

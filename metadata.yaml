@@ -1,4 +1,4 @@
--  Administrative:
+-  identifier: Administrative
    children:
       -  identifier: IDNR
 
@@ -16,11 +16,11 @@
          meaning: Date of birth
          tag: [ 'extended' ]
 
-      - identifier: VISIT
+      -  identifier: VISIT
 
       -  identifier: SEX
          meaning: Gender
-         mapping: { 1: male, 2: female }
+         mapping: { 1.: male, 2.: female }
 
       -  identifier: AGE
          meaning: Age
@@ -35,152 +35,151 @@
          unit: cm
 
       -  identifier: BMI
-         meaning: Body-mass index_frame
+         meaning: Body-mass index
          unit: Kg/m²
 
       -  identifier: SMK
          meaning: Smoking status
-         mapping: { 0: No, 1: Yes, 2: Ex-smoker }
+         mapping: { 0: 'No', 1: 'Yes', 2: Ex-smoker }
 
       -  identifier: PACKYEARS
          meaning: Packs per years
 
       -  identifier: DRK
          meaning: Alcohol intake
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0.: 'No', 1.: 'Yes' }
 
       -  identifier: NYHA
          meaning: NYHA class
 
 -  identifier: Medical history
    children:
-
       -  identifier: HTA
          meaning: Hypertension
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: DIABETES
          meaning: History of diabetes
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HCV
          meaning: History of cardiovascular disease
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HAP
          meaning: History of angina pectoris
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HMI
          meaning: History of myocardial infarction
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HIHD
          meaning: History of ischaemic heart disease
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HCAD
          meaning: History of coronary artery disease
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HCABG
          meaning: History of coronary artery bypass graft
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HPTCA
          meaning: History of percutaneous transluminal coronary angioplasty
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HPAD
          meaning: History of peripheral artery disease
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HHF
          meaning: History of heart failure
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HAF
          meaning: History of atrial fibrillation
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HCEREBROV
          meaning: History of cerebrovascular incident
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HSTROKE
          meaning: History of stroke
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HTIA
          meaning: History of transient ischemic attack
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HVALVE
          meaning: History of valve disease
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HCV_OTHER
          meaning: History of other cardiovascular disease
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HYPERCHOL
          meaning: Hypercholesterolemia
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: DEPRESSION
          meaning: History of depression
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
 -  identifier: Medication
    children:
 
       -  identifier: TRT_AH
          meaning: Intake of antihypertensive medication
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_ACE
          meaning: Intake of angiotensin converting enzyme inhibitors
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_CCB
          meaning: Intake of calcium channel blockers
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_DIUR
          meaning: Intake of diuretics
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_BB
          meaning: Intake of beta-blokcers
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_ARB
          meaning: Intake of angiotensin II receptor blockers
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_LIP
          meaning: Intake of lipid-lowering medication
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_STAT
          meaning: Intake of statins
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_FIB
          meaning: Intake of fibrates
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_ANTIPLT
          meaning: Intake of antiplatelet medication
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_ASPIRIN
          meaning: Intake of aspirin
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_AC
          meaning: Intake of anticoagulantia
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
 -  identifier: Blood pressure
    children:
@@ -203,7 +202,7 @@
 -  identifier: ECG
    children:
       -  identifier: SOK
-         meaning: Sokolow-Lyon index_frame
+         meaning: Sokolow-Lyon index
          unit: mm
 
       -  identifier: LVH
@@ -215,7 +214,7 @@
          unit: ms
 
       -  identifier: CI
-         meaning: Cornell index_frame
+         meaning: Cornell index
          unit: mm x msec
 
 -  identifier: Biochemical measurements
@@ -331,18 +330,18 @@
          type: survival_target
          unit_tte: Days
          meaning: Cardiovascular death
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: NFHF
          type: survival_target
          identifier_tte: FUNFHF
          unit_tte: Years
          meaning: Non-fatal heart failure
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: FNFHF
          type: survival_target
          identifier_tte: FUFNFHF
          unit_tte: Days
          meaning: Fatal or non-fatal heart failure
-         mapping: { 0: No, 1: Yes }
+         mapping: { 0: 'No', 1: 'Yes' }

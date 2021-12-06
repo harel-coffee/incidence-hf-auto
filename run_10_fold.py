@@ -4,15 +4,14 @@ from typing import List
 from mlflow import get_experiment_by_name, start_run, set_tracking_uri, set_tag
 
 from common import log_result
-from deps.common import get_variables, get_variables_cached
+from deps.common import get_variables_cached
 from deps.data import get_homage_X
-from deps.logger import logger
-from hcve_lib.cv import train_test_filter, kfold_cv, kfold_stratified_cv
+from hcve_lib.splitting import kfold_stratified_cv
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
 from deps.prediction import run_prediction
 from hcve_lib.data import get_survival_y
-from pipelines import get_pipelines
+from deps.pipelines import get_pipelines
 
 
 def run(selected_methods: List[str]):

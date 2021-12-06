@@ -1,19 +1,15 @@
 \import argparse
-from functools import partial
 from typing import List
 
-from mlflow import get_experiment_by_name, start_run, log_metrics, set_tracking_uri, set_tag
+from mlflow import get_experiment_by_name, start_run, set_tracking_uri, set_tag
 
-from common import brier
 from deps.common import get_variables
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
 from deps.prediction import run_prediction
-from hcve_lib.cv import get_lm_splits
-from hcve_lib.evaluation_functions import c_index, get_2_level_groups, compute_metrics_fold
+from hcve_lib.splitting import get_lm_splits
 from hcve_lib.tracking import log_pickled
-from hcve_lib.utils import transpose_dict, partial2_args
-from pipelines import get_pipelines
+from deps.pipelines import get_pipelines
 
 
 def run_lco(selected_methods: List[str]):
@@ -32,9 +28,9 @@ def run_lco(selected_methods: List[str]):
             current_method.predict,
         )
         with start_run(run_name=f'{method_name}', experiment_id=experiment.experiment_id):
-            log_pickled(result, 'result')
+            log_pickled(result, 'result_slit')
             set_tag('method_name', method_name)
-        # metrics_group = transpose_dict(get_2_level_groups(result, data.groupby('STUDY'), data))
+        # metrics_group = transpose_dict(get_2_level_groups(result_slit, data.groupby('STUDY'), data))
         # for test_fold_name, train_folds in metrics_group.items():
         #     with start_run(
         #         run_name=f'{method_name} {test_fold_name}', experiment_id=experiment.experiment_id

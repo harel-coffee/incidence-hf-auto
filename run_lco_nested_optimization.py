@@ -10,20 +10,20 @@ from pandas import DataFrame
 from common import brier
 from deps.common import get_variables_cached
 # noinspection PyUnresolvedReferences
-from deps.custom_types import MethodDefinition
+from deps.custom_types import Method
 from deps.logger import logger
-from hcve_lib.custom_types import Target, FoldPrediction
-from hcve_lib.cv import cross_validate, filter_missing_features, OptimizeEstimator, evaluate_optimize_splits
-from hcve_lib.cv import get_lco_splits
+from hcve_lib.custom_types import Target, SplitPrediction
+from hcve_lib.cv import cross_validate, OptimizeEstimator, evaluate_optimize_splits
+from hcve_lib.splitting import get_lco_splits, filter_missing_features
 from hcve_lib.evaluation_functions import c_index, compute_metrics_folds
 from hcve_lib.optimization import optuna_report_mlflow, EarlyStoppingCallback
 from hcve_lib.utils import partial2_args, partial2
-from pipelines import get_pipelines
+from deps.pipelines import get_pipelines
 
 study = optuna.create_study(direction="maximize")
 
 
-def run(methods: List[str], n_jobs: int) -> None:
+def run(methods: List[str], n_jobs: int, n_trials: int) -> None:
     data, metadata, X, y = get_variables_cached()
     logger.setLevel(INFO)
     logger.info('Data loaded')
@@ -37,10 +37,16 @@ def run(methods: List[str], n_jobs: int) -> None:
         with start_run(run_name=method_name, experiment_id=experiment.experiment_id):
             set_tag("method_name", method_name)
             set_tag("nested", True)
-            result: Dict[Hashable, FoldPrediction] = cross_validate(
+            result: Dict[Hashable, SplitPrediction] = cross_validate(
                 X,
                 y,
-                partial(get_inner, data=data, method_definition=method_definition, n_jobs=n_jobs),
+                partial(
+                    get_inner,
+                    data=data,
+                    method_definition=method_definition,
+                    n_trials=n_trials,
+                    n_jobs=n_jobs
+                ),
                 method_definition.predict,
                 cv,
                 train_test_filter_callback=filter_missing_features,
@@ -51,20 +57,17 @@ def run(methods: List[str], n_jobs: int) -> None:
             report_final(X, y, result, experiment.experiment_id)
 
 
-def get_inner(_, data: DataFrame, method_definition: MethodDefinition, n_jobs: int):
+def get_inner(_, data: DataFrame, method_definition: Method, n_trials: int, n_jobs: int):
     return OptimizeEstimator(
         method_definition.get_estimator,
         method_definition.predict,
         method_definition.optuna,
-        objective_evaluate=partial(
-            evaluate_optimize_splits,
-            predict_callback=method_definition.predict,
-            get_cv=partial2(get_lco_splits, data=data),
-        ),
+        objective_evaluate=partial(evaluate_optimize_splits),
         optimize_params={
             'n_jobs': n_jobs,
-            'n_trials': 50,
+            'n_trials': n_trials,
         },
+        get_splits=partial2(get_lco_splits, data=data),
         optimize_callbacks=[
             optuna_report_mlflow,
             EarlyStoppingCallback(
@@ -79,7 +82,7 @@ def get_inner(_, data: DataFrame, method_definition: MethodDefinition, n_jobs: i
 
 
 def report_final(
-    X: DataFrame, y: Target, result: Dict[Hashable, FoldPrediction], experiment_id: str
+    X: DataFrame, y: Target, result: Dict[Hashable, SplitPrediction], experiment_id: str
 ):
     metrics_folds = compute_metrics_folds(
         result,
@@ -112,5 +115,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('methods', metavar='METHOD', type=str, nargs='+')
     parser.add_argument('--n_jobs', type=int, default=-1)
+    parser.add_argument('--n_trials', type=int, default=100)
     args = parser.parse_args()
     run(**vars(args))
