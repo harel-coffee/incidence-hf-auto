@@ -4,14 +4,14 @@ from functools import partial
 
 from mlflow import start_run, log_metrics, set_tracking_uri, set_tag, set_experiment
 
-from common import brier, log_result
-from deps.common import get_variables_cached
+from common import log_result
+from deps.common import get_data_cached
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
 from deps.logger import logger
 from hcve_lib.cv import cross_validate
-from hcve_lib.splitting import get_lco_splits
-from hcve_lib.evaluation_functions import compute_metrics_folds, c_index
+from hcve_lib.splitting import get_lco_splits, filter_missing_features
+from hcve_lib.evaluation_functions import compute_metrics_on_splits, c_index, brier
 from hcve_lib.utils import partial2_args
 from hcve_lib.wrapped_sklearn import DFBinMapper
 from deps.pipelines import GBHist, LCO_GB_HYPERPARAMETERS
@@ -45,7 +45,7 @@ def run():
 
 def run_bin(n_bins: int) -> None:
     set_experiment('fed_lco_hist')
-    data, metadata, X, y = get_variables_cached()
+    data, metadata, X, y = get_data_cached()
     cv = get_lco_splits(X, y, data)
     with start_run(run_name=f'{n_bins}'):
         logger.setLevel(logging.INFO)
@@ -64,17 +64,17 @@ def run_bin(n_bins: int) -> None:
             n_jobs=-1,
             logger=logger,
             split_hyperparameters=LCO_GB_HYPERPARAMETERS,
+            train_test_filter_callback=filter_missing_features,
         )
         logger.info(f'Bin {n_bins} finished')
 
         log_result(X, y, current_method, result)
 
-        metrics_folds = compute_metrics_folds(
+        metrics_folds = compute_metrics_on_splits(
             result,
             [
                 partial2_args(c_index, kwargs={
-                    'X': X,
-                    'y': y
+                    'X': X, 'y': y
                 }),
                 partial2_args(
                     brier,
@@ -86,6 +86,7 @@ def run_bin(n_bins: int) -> None:
                     name='brier_3_years',
                 ),
             ],
+            y,
         )
 
         for fold_name, fold_metrics in metrics_folds.items():

@@ -6,7 +6,7 @@ def calculate_psi(expected, actual, buckettype='bins', buckets=10, axis=0):
     Args:
        expected: numpy matrix of original values
        actual: numpy matrix of new values, same size as expected
-       buckettype: type of strategy for creating buckets, bins splits into even splits, quantiles splits into quantile buckets
+       buckettype: type of strategy for creating buckets, bins predictions into even predictions, quantiles predictions into quantile buckets
        buckets: number of quantiles to use in bucketing variables
        axis: axis by which variables are defined, 0 for vertical, 1 for horizontal
     Returns:
@@ -55,10 +55,7 @@ def calculate_psi(expected, actual, buckettype='bins', buckets=10, axis=0):
             value = (e_perc - a_perc) * np.log(e_perc / a_perc)
             return (value)
 
-        psi_value = np.sum(
-            sub_psi(expected_percents[i], actual_percents[i])
-            for i in range(0, len(expected_percents))
-        )
+        psi_value = np.sum(sub_psi(expected_percents[i], actual_percents[i]) for i in range(0, len(expected_percents)))
 
         return (psi_value)
 

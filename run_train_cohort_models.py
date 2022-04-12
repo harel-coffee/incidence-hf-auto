@@ -3,12 +3,12 @@ import pickle
 
 from mlflow import set_tracking_uri, set_experiment
 
-from deps.common import get_variables_cached
+from deps.common import get_data_cached
 # noinspection PyUnresolvedReferences
-from deps.custom_types import Method
+from hcve_lib.custom_types import Method
 from deps.logger import logger
 from deps.pipelines import XGBClassifierMethod, GB
-from hcve_lib.cv import series_to_target
+from hcve_lib.cv import series_to_target, configuration_to_params
 from hcve_lib.utils import loc, get_fraction_missing
 
 set_tracking_uri('http://localhost:5000')
@@ -20,7 +20,7 @@ current_method = GB
 method_name = 'xgb'
 features_to_remove = ['CREA', 'HAF', 'SOK', 'CI', 'DRK', 'TRT_LIP', 'QRS']
 
-data, metadata, X, y = get_variables_cached()
+data, metadata, X, y = get_data_cached()
 
 X_grouped = X.groupby(data['STUDY'])
 
@@ -103,6 +103,7 @@ def train_model(X_cohort, hyperparameters):
     for column in X_cohort:
         if get_fraction_missing(X_cohort[column]) > 0.7:
             X_cohort_missing_removed.drop(columns=column, inplace=True)
+    pipeline.set_params(**configuration_to_params(hyperparameters))
     pipeline.fit(X_cohort_missing_removed, loc(X_cohort_missing_removed.index, y)['data'])
     return {
         'pipeline': pipeline,

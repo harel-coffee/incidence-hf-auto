@@ -22,7 +22,6 @@ def get_homage_X(
 
 
 def load_data(metadata: Metadata) -> DataFrame:
-    metadata = load_metadata()
     data = perform(
         [
             Step(
@@ -30,10 +29,8 @@ def load_data(metadata: Metadata) -> DataFrame:
                 log=log_step('Raw data', metadata),
             ),
             Step(
-                action=lambda current: statements(
-                    to_drop := current[current['STUDY'] == 'HULL_LIFELAB'],
-                    current.drop(to_drop.index)
-                ),
+                action=lambda current:
+                statements(to_drop := current[current['STUDY'] == 'HULL_LIFELAB'], current.drop(to_drop.index)),
                 log=log_step('Dropping HULL LIFE LAB cohort', metadata),
             ),
             Step(
@@ -41,20 +38,17 @@ def load_data(metadata: Metadata) -> DataFrame:
                 log=log_step('Baseline visit kept', metadata),
             ),
             Step(
-                action=lambda current:
-                remove_cohorts(current, ['leitzaran', 'hfgr', 'timechf'], metadata),
+                action=lambda current: remove_cohorts(current, ['leitzaran', 'hfgr', 'timechf'], metadata),
                 log=log_step('HF cohorts removed', metadata),
             ),
             Step(
-                action=lambda current: remove_cohorts(
-                    current, ['epath', 'iblomaved', 'stophf', 'dyda', 'biomarcoeurs'], metadata
-                ),
+                action=lambda current:
+                remove_cohorts(current, ['epath', 'iblomaved', 'stophf', 'dyda', 'biomarcoeurs'], metadata),
                 log=log_step('No outcome cohorts removed', metadata),
             ),
             Step(
                 action=lambda current: remove_cohorts(
-                    current, ['adelhyde', 'gecoh', 'r2c2', 'reve(1-2)', 'stanislas', 'styrianvitd'],
-                    metadata
+                    current, ['adelhyde', 'gecoh', 'r2c2', 'reve(1-2)', 'stanislas', 'styrianvitd'], metadata
                 ),
                 log=log_step('Missing HF data cohorts removed', metadata),
             ),
@@ -64,15 +58,16 @@ def load_data(metadata: Metadata) -> DataFrame:
             ),
             Step(
                 action=lambda current: fill_missing_pp(current),
-                log=lambda logger_, current, previous: logger_.info(
+                log=lambda logger_,
+                current,
+                previous: logger_.info(
                     f'Providing missing PP for '
                     f'{len(previous[previous["PP"].isna()]) - len(current[current["PP"].isna()])}'
                     f'individuals\n'
                 ),
             ),
             Step(
-                action=lambda current: current[
-                    (current['HHF'] == 0) | (current['STUDY_NUM'] == 18)],
+                action=lambda current: current[(current['HHF'] == 0) | (current['STUDY_NUM'] == 18)],
                 log=log_step('HF individuals at baseline removed', metadata),
             ),
             Step(
@@ -82,7 +77,13 @@ def load_data(metadata: Metadata) -> DataFrame:
                 log=log_step('Missing outcome individuals removed', metadata),
             ),
             Step(
-                log=lambda logger, current, _: logger.info(
+                action=lambda current: current[current['FUNFHF'] > 0],
+                log=log_step('Removes individuals with 0 follow up time', metadata),
+            ),
+            Step(
+                log=lambda logger,
+                current,
+                _: logger.info(
                     f'Final dataset\n'
                     f'\tn individuals={format_number(len(current))}\n'
                     f'\tn cohorts={len(current["STUDY_NUM"].unique())}\n'
@@ -90,7 +91,9 @@ def load_data(metadata: Metadata) -> DataFrame:
             ),
             Step(
                 action=auto_convert_category,
-                log=lambda logger, current, past: logger.info(
+                log=lambda logger,
+                current,
+                past: logger.info(
                     'Convert before:\n' + str(past.dtypes.map(str).value_counts()) + "Now:\n " +
                     str(current.dtypes.map(str).value_counts())
                 )
@@ -99,11 +102,47 @@ def load_data(metadata: Metadata) -> DataFrame:
         logger=logger
     )
     missing_or_irrelevant = [
-        'PACKYEARS', 'NYHA', 'HAP', 'HMI', 'HIHD', 'HCABG', 'HPTCA', 'HHF', 'HSTROKE', 'HTIA',
-        'HVALVE', 'HCV_OTHER', 'HYPERCHOL', 'DEPRESSION', 'TRT_STAT', 'TRT_FIB', 'TRT_ANTIPLT',
-        'TRT_ASPIRIN', 'TRT_AC', 'HTA', 'LVH', 'HB', 'HBA1C', 'HCT', 'WBC', 'RBC', 'PLT', 'CRP',
-        'NA', 'K', 'AST', 'ALT', 'BNP', 'NTPROBNP', 'ALBU', 'BICARB', 'TOT_PROT', 'LPA',
-        'FIBRINOGEN', 'HOMOCYST', 'EGFR'
+        'PACKYEARS',
+        'NYHA',
+        'HAP',
+        'HMI',
+        'HIHD',
+        'HCABG',
+        'HPTCA',
+        'HHF',
+        'HSTROKE',
+        'HTIA',
+        'HVALVE',
+        'HCV_OTHER',
+        'HYPERCHOL',
+        'DEPRESSION',
+        'TRT_STAT',
+        'TRT_FIB',
+        'TRT_ANTIPLT',
+        'TRT_ASPIRIN',
+        'TRT_AC',
+        'HTA',
+        'LVH',
+        'HB',
+        'HBA1C',
+        'HCT',
+        'WBC',
+        'RBC',
+        'PLT',
+        'CRP',
+        'NA',
+        'K',
+        'AST',
+        'ALT',
+        'BNP',
+        'NTPROBNP',
+        'ALBU',
+        'BICARB',
+        'TOT_PROT',
+        'LPA',
+        'FIBRINOGEN',
+        'HOMOCYST',
+        'EGFR'
     ]
 
     data.drop(['DBIRTH', 'DVISIT', *missing_or_irrelevant], axis=1, inplace=True)
@@ -165,5 +204,8 @@ def load_metadata():
     return metadata
 
 
-def group_by_study(X, data):
+def group_by_study(data: DataFrame, X: DataFrame = None):
+    if X is None:
+        X = data
+
     return X.groupby(data['STUDY'])

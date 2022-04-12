@@ -1,69 +1,27 @@
-from numbers import Rational
+from typing import Type
 
-import numpy
-from mlflow import set_tag
 from pandas import DataFrame
-from sksurv.metrics import brier_score
 
-from hcve_lib.custom_types import SplitPrediction, Target, SplitInput
-from hcve_lib.data import to_survival_y_records
-from hcve_lib.evaluation_functions import compute_metrics_ci, c_index
+from hcve_lib.custom_types import Target, Result, Method
+from hcve_lib.evaluation_functions import compute_metrics_ci, c_index, make_brier
 from hcve_lib.tracking import log_pickled, log_metrics_ci
-from hcve_lib.utils import partial2_args, split_data
 
 
-def brier(fold: SplitPrediction, X: DataFrame, y: Target, time_point: Rational) -> float:
-    X_train, y_train, X_test, y_test = split_data(X, y, fold, remove_extended=True)
+def log_result(
+    X: DataFrame, y: Target, current_method: Type[Method], random_state: int, result: Result, prefix: str = ''
+) -> None:
+    log_pickled(str(current_method.get_estimator(X, random_state)), 'pipeline.txt')
+    log_pickled(result, 'result')
 
-    if not isinstance(y_test, numpy.recarray):
-        y_test = {**y_test, 'data': to_survival_y_records(y_test['data'])}
-
-    if not isinstance(y_train, numpy.recarray):
-        y_train = {**y_train, 'data': to_survival_y_records(y_train['data'])}
-
-    return brier_score(
-            y_train['data'],
-            y_test['data'],
-            [fn(time_point) for fn in fold['model'] \
-                .predict_survival_function(X_test)],
-            time_point,
-        )[1][0]
-
-
-def brier_y_score(fold: SplitPrediction, X: DataFrame, y: Target, time_point: Rational) -> float:
-    X_train, y_train, X_test, y_test = split_data(X, y, fold)
-    if not isinstance(y_test, numpy.recarray):
-        y_test = {**y_test, 'data': to_survival_y_records(y_test['data'])}
-    if not isinstance(y_train, numpy.recarray):
-        y_train = {**y_train, 'data': to_survival_y_records(y_train['data'])}
-
-    return brier_score(
-        y_train['data'],
-        y_test['data'],
-        fold['y_score'],
-        time_point,
-    )[1][0]
-
-
-def log_result(X, y, current_method, method_name, result):
-    log_info(X, current_method, method_name, result)
-
-    brier_3_years = partial2_args(
-        brier, name='brier_3_years', kwargs={
-            'time_point': 3 * 365,
-            'X': X,
-            'y': y
-        }
-    )
-    c_index_ = partial2_args(c_index, kwargs={'X': X, 'y': y})
     metrics_ci = compute_metrics_ci(
         result,
-        [c_index_, brier_3_years],
+        [
+            c_index,
+            make_brier(
+                X,
+                time=3 * 365,
+            ),
+        ],
+        y,
     )
-    log_metrics_ci(metrics_ci, drop_ci=True)
-
-
-def log_info(X, current_method, method_name, result):
-    set_tag('method_name', method_name)
-    log_pickled(str(current_method.get_estimator(X)), 'pipeline.txt')
-    log_pickled(result, 'result')
+    log_metrics_ci(metrics_ci, drop_ci=True, prefix=prefix)

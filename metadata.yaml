@@ -323,6 +323,7 @@
          unit: mL/min/1.73m2
 
 -  identifier: Outcome
+   type: outcome
    children:
 
       -  identifier: FCV

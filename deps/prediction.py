@@ -8,7 +8,7 @@ from pandas import DataFrame
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
 from deps.logger import logger
-from hcve_lib.custom_types import SplitPrediction, Target, SplitInput
+from hcve_lib.custom_types import SplitPrediction, Target, SplitInput, Result
 from hcve_lib.cv import cross_validate
 from hcve_lib.splitting import filter_missing_features
 
@@ -20,7 +20,7 @@ def run_prediction(
     get_pipeline: Callable,
     predict: Callable,
     n_jobs=-1,
-) -> Dict[Hashable, SplitPrediction]:
+) -> Result:
 
     return cross_validate(
         X,
@@ -28,7 +28,8 @@ def run_prediction(
         get_pipeline,
         predict,
         cv,
-        lambda x_train, x_test: filter_missing_features(x_train, x_test),
+        lambda x_train,
+        x_test: filter_missing_features(x_train, x_test),
         n_jobs=n_jobs,
         logger=logger,
     )
@@ -42,6 +43,6 @@ def start_method_run(name: str) -> mlflow.ActiveRun:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cv', choices=('lco', '10-fold', 'lm', 'reproduce'))
+    parser.add_argument('--cv', choices=('lco', '10-prediction', 'lm', 'reproduce'))
     args = parser.parse_args()
     run_prediction(**vars(args))

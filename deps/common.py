@@ -6,7 +6,7 @@ from deps.memory import memory
 from hcve_lib.data import get_survival_y
 
 
-def get_variables(remove_cohorts: Sequence[str] = tuple()):
+def get_data(remove_cohorts: Sequence[str] = tuple()):
     metadata = load_metadata()
     data = load_data(metadata)
 
@@ -24,4 +24,4 @@ def get_variables(remove_cohorts: Sequence[str] = tuple()):
     return data_selected, metadata, X, y
 
 
-get_variables_cached = memory.cache(get_variables)
+get_data_cached = memory.cache(get_data)

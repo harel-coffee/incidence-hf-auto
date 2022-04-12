@@ -1,6 +1,6 @@
 from mlflow import start_run, log_metrics
 
-from hcve_lib.tracking import encode_run_name
+from hcve_lib.tracking import encode_run_name, log_metrics_ci
 
 
 def log_splits_as_subruns(metrics_folds, experiment_id=None):
