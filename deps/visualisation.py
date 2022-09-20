@@ -12,43 +12,64 @@ def plot_metric_matrix(
     matrix: Dict[str, Dict[str, ValueWithCI]],
     **kwargs,
 ) -> Figure:
+
+    matrix_numerical_df = get_numerical_matrix_df(matrix)
+
     formatted_matrix = map_deep(
         matrix,
         mapper=format_matrix_value,
         levels=2,
     )
 
-    numerical_matrix = map_deep(
-        matrix,
-        lambda value,
-        level: (value['mean'] if value['mean'] else 0.5) if value and level == 1 else value,
-        levels=2,
-    )
-    matrix_numerical_df = DataFrame(numerical_matrix)
     matrix_formatted_df = DataFrame(formatted_matrix)
+
+    figure = plot_matrix(matrix_numerical_df, matrix_formatted_df, **kwargs)
+
+    return figure
+
+
+def plot_matrix(
+    matrix: DataFrame,
+    labels: DataFrame = None,
+    **kwargs,
+) -> Figure:
 
     pass_kwargs = dict(
         **kwargs,
-        zmin=matrix_numerical_df.min().min(),
-        zmax=matrix_numerical_df.max().max(),
+        zmin=matrix.min().min(),
+        zmax=matrix.max().max(),
     )
-
     figure = ff.create_annotated_heatmap(
-        matrix_numerical_df.round(2).to_numpy(),
-        annotation_text=matrix_formatted_df.to_numpy(),
-        x=list(matrix_formatted_df.columns),
-        y=list(matrix_formatted_df.index),
+        matrix.round(2).to_numpy(),
+        annotation_text=None if labels is None else labels.to_numpy(),
+        x=list(matrix.columns),
+        y=list(matrix.index),
         font_colors=['white', 'black'],
         **dict(
             **kwargs,
-            zmin=matrix_numerical_df.min().min(),
-            zmax=matrix_numerical_df.max().max(),
+            zmin=matrix.min().min(),
+            zmax=matrix.max().max(),
         ),
     )
     figure.update_layout(xaxis_title="Trained on", yaxis_title='Tested on')
     figure.update_xaxes(showgrid=False)
     figure.update_yaxes(showgrid=False)
     return figure
+
+
+def get_numerical_matrix_df(matrix: Dict[str, Dict[str, ValueWithCI]]) -> DataFrame:
+    numerical_matrix = get_numerical_matrix(matrix)
+    matrix_numerical_df = DataFrame(numerical_matrix)
+    return matrix_numerical_df
+
+
+def get_numerical_matrix(matrix: Dict[str, Dict[str, ValueWithCI]]) -> Dict[str, Dict[str, ValueWithCI]]:
+    numerical_matrix = map_deep(
+        matrix,
+        (lambda value, level: (value['mean'] if value['mean'] else 0.5) if value and level == 1 else value),
+        levels=2,
+    )
+    return numerical_matrix
 
 
 def format_value_with_ci(value: ValueWithCI) -> str:

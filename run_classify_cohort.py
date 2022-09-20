@@ -34,7 +34,7 @@ with start_run(run_name=method_name):
         X,
         y,
         current_method.get_estimator,
-        current_method.predict,
+        current_method,
         get_kfold_splits(X),
         n_jobs=-1,
         logger=logger,

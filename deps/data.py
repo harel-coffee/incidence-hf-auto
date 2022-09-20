@@ -1,3 +1,5 @@
+from typing import List, Union, Tuple
+
 import pandas
 import yaml
 from pandas import read_csv, DataFrame
@@ -29,22 +31,36 @@ def load_data(metadata: Metadata) -> DataFrame:
                 log=log_step('Raw data', metadata),
             ),
             Step(
+                action=lambda current: current[current['VISIT'] == 'BASELINE'],
+                log=log_step('Baseline visit kept', metadata),
+            ),
+            Step(
                 action=lambda current:
                 statements(to_drop := current[current['STUDY'] == 'HULL_LIFELAB'], current.drop(to_drop.index)),
                 log=log_step('Dropping HULL LIFE LAB cohort', metadata),
             ),
             Step(
-                action=lambda current: current[current['VISIT'] == 'BASELINE'],
-                log=log_step('Baseline visit kept', metadata),
+                action=lambda current: current[(current['AGE'] >= 30) & (current['AGE'] <= 80)],
+                log=log_step('Only 30-80 age', metadata),
             ),
             Step(
                 action=lambda current: remove_cohorts(current, ['leitzaran', 'hfgr', 'timechf'], metadata),
                 log=log_step('HF cohorts removed', metadata),
             ),
             Step(
+                action=lambda current: current[(current['HHF'] == 0) | (current['STUDY_NUM'] == 18)],
+                log=log_step('HF individuals at baseline removed', metadata),
+            ),
+            Step(
                 action=lambda current:
                 remove_cohorts(current, ['epath', 'iblomaved', 'stophf', 'dyda', 'biomarcoeurs'], metadata),
                 log=log_step('No outcome cohorts removed', metadata),
+            ),
+            Step(
+                action=lambda current: current[
+                    # (~current['FCV'].isna() & ~current['FUFCV'].isna()) &
+                    (~current['NFHF'].isna() & ~current['FUNFHF'].isna())],
+                log=log_step('Missing outcome individuals removed', metadata),
             ),
             Step(
                 action=lambda current: remove_cohorts(
@@ -65,16 +81,6 @@ def load_data(metadata: Metadata) -> DataFrame:
                     f'{len(previous[previous["PP"].isna()]) - len(current[current["PP"].isna()])}'
                     f'individuals\n'
                 ),
-            ),
-            Step(
-                action=lambda current: current[(current['HHF'] == 0) | (current['STUDY_NUM'] == 18)],
-                log=log_step('HF individuals at baseline removed', metadata),
-            ),
-            Step(
-                action=lambda current: current[
-                    # (~current['FCV'].isna() & ~current['FUFCV'].isna()) &
-                    (~current['NFHF'].isna() & ~current['FUNFHF'].isna())],
-                log=log_step('Missing outcome individuals removed', metadata),
             ),
             Step(
                 action=lambda current: current[current['FUNFHF'] > 0],
@@ -155,6 +161,11 @@ def auto_convert_category(data: DataFrame) -> DataFrame:
     for column in data_new.columns:
         if len(data_new[column].unique()) < 10:
             data_new.loc[:, column] = data_new[column].astype('category')
+        else:
+            try:
+                data_new.loc[:, column] = data_new[column].astype('float')
+            except TypeError:
+                pass
     return data_new
 
 
@@ -173,6 +184,7 @@ def load_all_data():
         load_raw_data(),
         get_variable_identifier(load_metadata()),
     )
+    print(data)
     return data
 
 
@@ -209,3 +221,7 @@ def group_by_study(data: DataFrame, X: DataFrame = None):
         X = data
 
     return X.groupby(data['STUDY'])
+
+
+def get_30_to_80(_X):
+    return _X[(_X['AGE'] >= 30) & (_X['AGE'] <= 80)]

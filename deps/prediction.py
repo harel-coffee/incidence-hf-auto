@@ -8,13 +8,13 @@ from pandas import DataFrame
 # noinspection PyUnresolvedReferences
 from deps.ignore_warnings import *
 from deps.logger import logger
-from hcve_lib.custom_types import SplitPrediction, Target, SplitInput, Result
+from hcve_lib.custom_types import Prediction, Target, TrainTestIndex, Result
 from hcve_lib.cv import cross_validate
 from hcve_lib.splitting import filter_missing_features
 
 
 def run_prediction(
-    cv: Dict[Any, SplitInput],
+    cv: Dict[Any, TrainTestIndex],
     X: DataFrame,
     y: Target,
     get_pipeline: Callable,

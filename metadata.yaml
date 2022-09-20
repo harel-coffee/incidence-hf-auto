@@ -36,6 +36,7 @@
 
       -  identifier: BMI
          meaning: Body-mass index
+         short_label: BMI
          unit: Kg/m²
 
       -  identifier: SMK
@@ -64,6 +65,7 @@
 
       -  identifier: HCV
          meaning: History of cardiovascular disease
+         short_label: History of CVD
          mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: HAP
@@ -135,14 +137,17 @@
 
       -  identifier: TRT_AH
          meaning: Intake of antihypertensive medication
+         short_label: Intake of AH
          mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_ACE
          meaning: Intake of angiotensin converting enzyme inhibitors
+         short_label: Intake of ACE inh.
          mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_CCB
          meaning: Intake of calcium channel blockers
+         short_label: Intake of CCB
          mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_DIUR
@@ -155,6 +160,7 @@
 
       -  identifier: TRT_ARB
          meaning: Intake of angiotensin II receptor blockers
+         short_label: Intake of ARB
          mapping: { 0: 'No', 1: 'Yes' }
 
       -  identifier: TRT_LIP
@@ -185,10 +191,12 @@
    children:
       -  identifier: SBP
          meaning: Systolic blood pressure
+         short_label: SBP
          unit: mmHg
 
       -  identifier: DBP
          meaning: Diastolic blood pressure
+         short_label: DBP
          unit: mmHg
 
       -  identifier: HR
@@ -197,6 +205,7 @@
 
       -  identifier: PP
          meaning: Pulse pressure
+         short_label: PP
          unit: mmHg
 
 -  identifier: ECG

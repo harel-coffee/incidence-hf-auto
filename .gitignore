@@ -4,8 +4,9 @@ __pycache__
 .ipynb_checkpoints/
 .project_cache/
 data/
-.project-cache/
+.project-cache
 /mlruns/
+scikit-survival
 dcm/
 dsm/
 sksurv/
