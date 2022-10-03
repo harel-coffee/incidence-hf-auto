@@ -1,9 +1,8 @@
-output/*
 __pycache__
 .idea/
 .ipynb_checkpoints/
 .project_cache/
-data/
+data/*
 .project-cache
 /mlruns/
 scikit-survival
@@ -13,3 +12,4 @@ sksurv/
 dsm_federated/
 .mypy_cache
 dsm_original
+/output/*

@@ -1,3 +1,4 @@
+from numpy import mean, std
 from pandas import DataFrame
 from typing import Sequence, Tuple, Type, Dict, Hashable
 

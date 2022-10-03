@@ -380,6 +380,7 @@ class CoxnetSurvivalAnalysisT(CoxnetSurvivalAnalysis):
 
 class GradientBoostingSurvivalAnalysisT(GradientBoostingSurvivalAnalysis):
     transform_callback: Callable[[Target], Any]
+    loss = 'coxph'
 
     def __init__(
         self,
@@ -647,7 +648,7 @@ class SVMPipeline(Method):
                 'missing_fraction': trial.suggest_uniform(f'{CROSS_VALIDATE_KEY}_missing_fraction', 0.1, 1),
             },
             'estimator': {
-                'alpha': trial.suggest_uniform('estimator_alpha', 0, 1000),
+                'alpha': trial.suggest_loguniform('estimator_alpha', 10**-3, 10**3),
             }
         }
         hyperparameters['estimator']['kernel'] = trial.suggest_categorical(
@@ -656,6 +657,7 @@ class SVMPipeline(Method):
 
         if hyperparameters['estimator']['kernel'] == 'rbf':
             hyperparameters['estimator']['degree'] = trial.suggest_int('estimator_degree', 1, 3)
+            hyperparameters['estimator']['gamma'] = trial.suggest_loguniform('estimator_gamma', 10**-3, 10**3)
 
         return trial, hyperparameters
 

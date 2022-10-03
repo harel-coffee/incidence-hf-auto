@@ -59,6 +59,9 @@ def get_endpoint_analysis_prediction(group_id, standardize=False):
     return merged_prediction
 
 
+get_endpoint_analysis_prediction_cached = memory.cache(get_endpoint_analysis_prediction)
+
+
 def run_roc_analysis(groups, *args, **kwargs):
     fig = Figure(layout=dict(
         title='ROC',
@@ -100,10 +103,13 @@ def get_pr_analysis(groups, y, metrics, iterations=50, standardize=False, return
     }
 
 
-def run_pr_analysis_ci(groups, y, metrics, standardize, iterations=50):
+def run_pr_analysis_ci(groups, y, metrics, metrics_summary, standardize, iterations=50):
     pr = get_pr_analysis(groups, y=y, metrics=metrics, standardize=standardize, iterations=iterations)
     pr_ci = get_pr_analysis_ci(pr)
-    return plot_pr_ci(pr_ci)
+    pr_summary = get_pr_analysis(
+        groups, y=y, metrics=metrics_summary, standardize=standardize, iterations=iterations, summary=True
+    ),
+    return plot_pr_ci(pr_ci, pr_summary)
 
 
 def get_pr_analysis_ci(pr):
@@ -118,30 +124,32 @@ get_pr_analysis_cache = cache(get_pr_analysis_ci)
 
 
 def get_curve_analysis_ci_from_bootstrap(curves, level=0.95):
-    precision, recall, thresholds = transpose_list(curves)
+    precision, recall, confusion_m, thresholds = transpose_list(curves)
     thresholds_ci = get_curve_ci_from_bootstrap(thresholds)
     precision_ci = get_curve_ci_from_bootstrap(precision)
     recall_ci = get_curve_ci_from_bootstrap(recall)
-    return precision_ci, recall_ci, thresholds_ci
+    return precision_ci, recall_ci, confusion_m[0], thresholds_ci
 
 
 def get_curve_ci_from_bootstrap(curve):
     return [statistic_from_bootstrap(list(reject_none(points))) for points in transpose_list(curve)]
 
 
-def plot_pr_ci(pr_ci_out):
+def format_confusion_m(m):
+    return f'{m[1][1]:.0f} {m[0][1]:.0f}<br>' \
+           f'{m[1][0]:.0f} {m[0][0]:.0f}'
 
-    # In 10-year incident HF prediction, stacking method, combining the PCP-HF score, GB, CoxNet and Gaussian
-    # mixture, achieved the best discrimination in precision-recall analysis (Figure 4), with PR/AUC 0.652 (95% CI
-    # 0.618-0.682). GB scored second, with PR/AUC of 0.497 (0.468-0.527). CoxNet and PCP-HF performed similarly with
-    # PR/AUC of 0.460 (0.435-0.491) and 0.459 (0.428-0.486), respectively. Precision-recall analysis is more
-    # sensitive to differences in false positives and thus better captures the practical aspect of clinical decision
-    # making.
-    METHODS_TITLE = {
-        'stacking': '<b>Stacking (ST)</b><br>PR/AUC: 0.652 (0.618-0.682)',
-        'gb': "<b>Gradient Boosting (GB)</b><br>PR/AUC: 0.497 (0.468-0.527)",
-        'coxnet': "<b>CoxNet (CN)</b><br>PR/AUC: 0.460 (0.435-0.491)",
-        'pcp_hf': "<b>PCP-HF</b><br>PR/AUC: 0.459 (0.418-0.486)",
+
+def plot_pr_ci(pr_ci_out, pr_summary):
+    methods_title = {
+        'stacking': 'Stacking',
+        'gb': "SGB",
+        'coxnet': "CoxNet",
+        'pcp_hf': "PCP-HF",
+    }
+    methods_title = {
+        name: format_pr_ci_summary(methods_title, pr_summary, name)
+        for name, label in methods_title.items()
     }
 
     method_names = []
@@ -149,33 +157,31 @@ def plot_pr_ci(pr_ci_out):
     precision_ci_low = []
     precision_ci_high = []
     recall_mean = []
+    confusion_matrices = []
 
-    for method_name, (precision_curve_ci, recall_curve_ci, thresholds) in pr_ci_out.items():
+    for method_name, (precision_curve_ci, recall_curve_ci, confusion_matrix, thresholds) in pr_ci_out.items():
         n_points = len(precision_curve_ci)
+        print(n_points, len(confusion_matrix))
         method_names += [method_name] * n_points
         recall_mean += [point['mean'] for point in recall_curve_ci]
         precision_ci_low += [point['ci'][0] for point in precision_curve_ci]
         precision_ci_high += [point['ci'][1] for point in precision_curve_ci]
         precision_mean += [point['mean'] for point in precision_curve_ci]
+        confusion_matrices += confusion_matrix + [confusion_matrix[-1]]
 
     pr_ci_df = DataFrame(
         {
             'method_name': method_names,
-            'method_title': [METHODS_TITLE.get(m, m) for m in method_names],
+            'method_title': [methods_title.get(m, m) for m in method_names],
             'precision_mean': precision_mean,
             'precision_ci_low': precision_ci_low,
             'precision_ci_high': precision_ci_high,
-            'recall_mean': recall_mean,
+            'recall_mean': recall_mean,  # TODO
+            # 'confusion_matrix': confusion_matrices,
         }
     ).sort_values('recall_mean')
 
     fig = Figure()
-    # fig = px.line(
-    #     pr_ci_df,
-    #     x='recall_mean',
-    #     y='precision_mean',
-    #     color=[COLORS[m] for m in pr_ci_df['method_name']],
-    # )
     setup_plotly_style(fig)
 
     for method_name, pr_ci_df_method in pr_ci_df.groupby('method_name'):
@@ -187,7 +193,7 @@ def plot_pr_ci(pr_ci_out):
                 line=dict(color=get_color(method_name), width=0.1, shape='spline', smoothing=1.3),
                 name=pr_ci_df_method['method_title'].iloc[0],
                 showlegend=False,
-                hovertemplate=''
+                hoverinfo='skip'
             )
         )
         fig.add_trace(
@@ -197,7 +203,9 @@ def plot_pr_ci(pr_ci_out):
                 mode='lines',
                 line=dict(color=get_color(method_name)),
                 fill='tonexty',
+                hovertemplate='P: %{y:.2f}, R: %{x:.2f}<br>%{text}<extra></extra>',
                 name=pr_ci_df_method['method_title'].iloc[0],
+                # text=[format_confusion_m(m) for m in pr_ci_df_method['confusion_matrix']],
             )
         )
         fig.add_trace(
@@ -209,7 +217,7 @@ def plot_pr_ci(pr_ci_out):
                 line=dict(color=get_color(method_name), width=0.1, shape='spline', smoothing=1.3),
                 fill='tonexty',
                 showlegend=False,
-                hovertemplate=''
+                hoverinfo='skip'
             )
         )
 
@@ -219,3 +227,8 @@ def plot_pr_ci(pr_ci_out):
         scaleratio=1,
     )
     return fig
+
+
+def format_pr_ci_summary(labels, pr_summary, name):
+    value = pr_summary[name]['average_precision_score_3650']
+    return labels[name] + f'<br>PR/AUC: {value["mean"]:.3f} ({value["ci"][0]:.3f}-{value["ci"][1]:.3f})'
